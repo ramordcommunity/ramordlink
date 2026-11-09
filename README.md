@@ -87,15 +87,41 @@ ramord-link
 
 ## Türkçe Açıklama
 
-**Ramord Link**, Linux bilgisayarınız ile ikincil bir bilgisayarı (Windows PC veya Mac) tek bir Ethernet kablosu ve yerel Wi-Fi ağı üzerinden birbirine bağlayan modern, modüler ve açık kaynaklı bir köprü uygulamasıdır.
+**Ramord Link**, Linux bilgisayarınız ile ikincil bir bilgisayarı (Windows PC veya Mac) tek bir Ethernet kablosu veya yerel Wi-Fi ağı üzerinden birbirine bağlayan modern, modüler ve açık kaynaklı bir köprü uygulamasıdır.
 
 ### Temel Özellikler
 
-- **Tek Tıkla İnternet Paylaşımı:** Wi-Fi internetinizi tek tıkla Ethernet kablosu üzerinden diğer bilgisayarla paylaşın (`192.168.50.1/24` ağ geçidi ve otomatik DHCP).
-- **Mouse ve Klavye Paylaşımı (KVM):** Masanızdaki fare ve klavyeyi Deskflow entegrasyonuyla Windows ekranına pürüzsüzce geçirin.
-- **Web Dosya Paylaşımı (Sürükle & Bırak):** Tarayıcı üzerinden telefon ve bilgisayarlardan `~/Genel` klasörüne dosya gönderip indirin (4 GB limit ve kota korumalı).
-- **6 Dilde Tam Destek:** Türkçe, İngilizce, Almanca, İspanyolca, Fransızca ve İtalyanca arayüz desteği.
-- **Sistem Tepsisi & Arka Plan:** Kapatıldığında tepsiye küçülür, tek örnek kilidiyle çakışmaları önler.
+1. **Tek Tıkla İnternet Paylaşımı (Ethernet ve Wi-Fi Hotspot):**
+   - Wi-Fi internetinizi tek tıkla Ethernet kablosu üzerinden diğer bilgisayarla paylaşın (`192.168.50.1/24` ağ geçidi ve otomatik yerel DHCP).
+   - Kablosuz internet paylaşımını destekleyen adaptörler için dahili güvenli Wi-Fi Hotspot oluşturma imkanı.
+
+2. **Mouse, Klavye ve Otomatik Pano Paylaşımı (KVM / Deskflow):**
+   - Masanızdaki tek bir fare ve klavyeyle hem Linux hem Windows ekranını yönetin.
+   - Ekran yönü seçimi: İkinci ekranı **Sağ**, **Sol**, **Üst** veya **Alt** tarafa konumlandırın.
+   - **Çift Yönlü Pano Senkronizasyonu (Clipboard):** Bir bilgisayarda kopyaladığınız (`Ctrl+C`) metin, kod parçası veya pano içeriği anında diğer bilgisayara aktarılır ve doğrudan yapıştırılabilir (`Ctrl+V`).
+
+3. **Web ve Ağ Üzerinden Dosya Paylaşımı:**
+   - Hafif yerel HTTP sunucusu (Port `8080`) üzerinden telefon ve bilgisayarlardan sürükle-bırak yöntemiyle dosya yükleme ve indirme.
+   - Paylaşılacak ana klasörü arayüzden seçme imkanı (`~/Genel` veya dilediğiniz özel klasör).
+   - Windows kullanıcıları için yerel SMB ağ klasörü (`\\192.168.50.1\Genel`) doğrudan erişim rehberi.
+
+4. **6 Dilde Eksiksiz Arayüz Desteği:**
+   - Türkçe (`tr`), İngilizce (`en`), Almanca (`de`), İspanyolca (`es`), Fransızca (`fr`) ve İtalyanca (`it`).
+   - Sistem dilini otomatik algılama ve anında dinamik dil değiştirme.
+
+5. **Masaüstü ve Sistem Entegrasyonu:**
+   - Sistem tepsisi (tray) desteği, arka planda sessiz çalışma, tek örnek (single-instance) kilidi.
+
+---
+
+### Windows Kurulum ve Bağlantı Adımları (Mouse, Klavye & Pano)
+
+1. Windows bilgisayarınıza **Deskflow** indirin ve kurun ([deskflow.org/download](https://deskflow.org/download)).
+2. Deskflow'u **Client (İstemci)** modunda açın.
+3. Sunucu IP adresi (Server IP) kutusuna: `192.168.50.1` yazın (Ethernet kablosu bağlıyken) veya yedek Wi-Fi IP adresini girin.
+4. Ekran adı (Screen name) kutusuna: `windows` yazın.
+5. Güvenlik ayarlarında **Use TLS encryption** seçeneğini kapalı tutun.
+6. **Start** butonuna tıklayın. Bağlantı kurulduğunda Ramord Link üzerinde "İkinci PC Bağlı" durumuna geçecek; fare, klavye ve panonuz ortak çalışacaktır.
 
 ---
 

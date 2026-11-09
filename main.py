@@ -1358,6 +1358,7 @@ class MainWindow(QWidget):
             f"4) {t('win_setup_step4')}: {CLIENT_SCREEN}\n\n"
             f"5) {t('win_setup_step5')}\n\n"
             f"6) {t('win_setup_step6')}\n\n"
+            f"7) {t('win_setup_step7')}\n\n"
             f"{t('edge_hint')}"
         )
         box.exec()

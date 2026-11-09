@@ -11,14 +11,14 @@
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#trke-aklama">Türkçe Açıklama</a> •
-  <a href="#contact">Contact</a>
+  <a href="#türkçe-açıklama">Türkçe Açıklama</a> •
+  <a href="#license">License</a> •
+  <a href="#contact--support">Contact</a>
 </p>
 
 ---
 
-## English
+## Features
 
 **Ramord Link** is a modern, lightweight, modular open-source desktop application designed to bridge a Linux workstation and a secondary computer (such as a Windows PC or Mac) over a single Ethernet cable and local Wi-Fi.
 

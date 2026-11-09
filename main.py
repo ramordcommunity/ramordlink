@@ -161,30 +161,28 @@ def make_tray_icon(active: bool) -> QIcon:
     pm.fill(Qt.transparent)
     painter = QPainter(pm)
     painter.setRenderHint(QPainter.Antialiasing)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
-    color = QColor(PRIMARY if active else DIM)
+    # Base: Official Application Icon (Deer + Cyber Link)
+    base_pix = None
+    for p in (ICON_PATH, ASSET_ICON_PATH):
+        if p.exists():
+            candidate = QPixmap(str(p))
+            if not candidate.isNull():
+                base_pix = candidate.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                break
 
-    # Wi-Fi broadcast ripples
-    painter.setPen(Qt.NoPen)
-    painter.setBrush(color)
-    painter.drawEllipse(14, 38, 8, 8)
-    for width, radius, alpha in ((5, 16, 230), (5, 26, 150)):
-        pen = painter.pen()
-        pen.setColor(QColor(color.red(), color.green(), color.blue(), alpha))
-        pen.setWidth(width)
-        pen.setCapStyle(Qt.RoundCap)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        rect = (32 - radius, 42 - radius, radius * 2, radius * 2)
-        painter.drawArc(*rect, 45 * 16, 90 * 16)
+    if base_pix is not None:
+        painter.drawPixmap(0, 0, base_pix)
+    else:
+        painter.setBrush(QColor(PRIMARY if active else DIM))
+        painter.drawRoundedRect(4, 4, 56, 56, 14, 14)
 
-    # Ethernet cable / display
-    pen = painter.pen()
-    pen.setColor(color)
-    pen.setWidth(5)
-    painter.setPen(pen)
-    painter.setBrush(Qt.NoBrush)
-    painter.drawRoundedRect(38, 34, 16, 18, 3, 3)
+    # Status Badge indicator at bottom-right corner (Active turquoise, Inactive dim)
+    badge_color = QColor(PRIMARY if active else DIM)
+    painter.setBrush(badge_color)
+    painter.setPen(QPen(QColor("#071013"), 3))
+    painter.drawEllipse(44, 44, 16, 16)
     painter.end()
     return QIcon(pm)
 

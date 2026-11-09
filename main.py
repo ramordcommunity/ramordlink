@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -66,17 +67,24 @@ from i18n import (
 from network import (
     CONNECTION_NAME,
     DHCP_RANGE,
+    HOTSPOT_CONNECTION_NAME,
+    HOTSPOT_DEFAULT_PASS,
+    HOTSPOT_DEFAULT_SSID,
     SHARE_IP,
     SMB_SHARE_NAME,
     clients,
     detect_interfaces,
+    disable_hotspot,
     disable_sharing,
+    enable_hotspot,
     enable_sharing,
     get_default_ethernet,
     get_default_wifi,
     iface_address,
     is_carrier_up,
+    is_hotspot_active,
     is_samba_running,
+    is_wifi_ap_supported,
     link_speed,
     sharing_active,
     wifi_info,
@@ -414,6 +422,17 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
     background: transparent;
 }}
+QLineEdit {{
+    background: #0b171b;
+    border: 1px solid rgba(20, 200, 178, 0.3);
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: {TEXT};
+    font-size: 13px;
+}}
+QLineEdit:focus {{
+    border-color: {PRIMARY};
+}}
 QMenu {{
     background: #0b171b;
     border: 1px solid rgba(20, 200, 178, 0.3);
@@ -474,8 +493,8 @@ class MainWindow(QWidget):
 
         self.setWindowTitle(t("app_title"))
         self.setWindowIcon(make_tray_icon(True))
-        self.setMinimumSize(540, 640)
-        self.resize(580, 920)
+        self.setMinimumSize(700, 720)
+        self.resize(760, 940)
 
         self._build_ui()
         self._build_tray()
@@ -723,6 +742,71 @@ class MainWindow(QWidget):
 
         root.addWidget(files_card)
 
+        # ---------- Hotspot (Wireless AP Sharing) ----------
+        hotspot_card = QFrame()
+        hotspot_card.setObjectName("card")
+        add_shadow(hotspot_card, blur=22, y=4, alpha=14)
+        hotspot_layout = QVBoxLayout(hotspot_card)
+        hotspot_layout.setContentsMargins(18, 16, 18, 16)
+        hotspot_layout.setSpacing(12)
+
+        hotspot_top = QHBoxLayout()
+        hotspot_top.setSpacing(12)
+        hotspot_icon = QLabel()
+        hotspot_icon.setPixmap(make_feature_icon("wifi", PRIMARY, "rgba(20, 200, 178, 0.15)"))
+        hotspot_icon.setFixedSize(44, 44)
+        hotspot_text = QVBoxLayout()
+        hotspot_text.setSpacing(1)
+        self.hotspot_title = QLabel(t("card_hotspot_title"))
+        self.hotspot_title.setObjectName("sectionTitle")
+        self.hotspot_status = QLabel(t("hotspot_off"))
+        self.hotspot_status.setObjectName("subtitle")
+        hotspot_text.addWidget(self.hotspot_title)
+        hotspot_text.addWidget(self.hotspot_status)
+
+        self.hotspot_btn = QPushButton(t("hotspot_btn_enable"))
+        self.hotspot_btn.setObjectName("soft")
+        self.hotspot_btn.setCursor(Qt.PointingHandCursor)
+        self.hotspot_btn.clicked.connect(self.toggle_hotspot)
+
+        hotspot_top.addWidget(hotspot_icon)
+        hotspot_top.addLayout(hotspot_text, 1)
+        hotspot_top.addWidget(self.hotspot_btn, 0, Qt.AlignVCenter)
+        hotspot_layout.addLayout(hotspot_top)
+
+        # Hotspot SSID & Password Configuration Fields
+        hotspot_config_row = QHBoxLayout()
+        hotspot_config_row.setSpacing(12)
+
+        ssid_box = QVBoxLayout()
+        ssid_box.setSpacing(4)
+        self.hotspot_ssid_lbl = QLabel(t("hotspot_ssid"))
+        self.hotspot_ssid_lbl.setObjectName("key")
+        self.hotspot_ssid_input = QLineEdit()
+        self.hotspot_ssid_input.setText(self.settings.get("hotspot_ssid", HOTSPOT_DEFAULT_SSID))
+        ssid_box.addWidget(self.hotspot_ssid_lbl)
+        ssid_box.addWidget(self.hotspot_ssid_input)
+
+        pass_box = QVBoxLayout()
+        pass_box.setSpacing(4)
+        self.hotspot_pass_lbl = QLabel(t("hotspot_password"))
+        self.hotspot_pass_lbl.setObjectName("key")
+        self.hotspot_pass_input = QLineEdit()
+        self.hotspot_pass_input.setText(self.settings.get("hotspot_pass", HOTSPOT_DEFAULT_PASS))
+        pass_box.addWidget(self.hotspot_pass_lbl)
+        pass_box.addWidget(self.hotspot_pass_input)
+
+        hotspot_config_row.addLayout(ssid_box, 1)
+        hotspot_config_row.addLayout(pass_box, 1)
+        hotspot_layout.addLayout(hotspot_config_row)
+
+        self.hotspot_hint = QLabel(t("hotspot_hint"))
+        self.hotspot_hint.setObjectName("subtitle")
+        self.hotspot_hint.setWordWrap(True)
+        hotspot_layout.addWidget(self.hotspot_hint)
+
+        root.addWidget(hotspot_card)
+
         # ---------- Details Disclosure ----------
         self.details_btn = QPushButton(f"{t('details_title')}  ▾")
         self.details_btn.setObjectName("disclosure")
@@ -920,6 +1004,11 @@ class MainWindow(QWidget):
         self.wifi_files_title.setText(t("wifi_files_title"))
         self.wifi_files_desc.setText(t("wifi_files_desc"))
 
+        self.hotspot_title.setText(t("card_hotspot_title"))
+        self.hotspot_ssid_lbl.setText(t("hotspot_ssid"))
+        self.hotspot_pass_lbl.setText(t("hotspot_password"))
+        self.hotspot_hint.setText(t("hotspot_hint"))
+
         vis = self.details.isVisible()
         self.details_btn.setText(f"{t('details_title')}  {'▴' if vis else '▾'}")
         self.link_key.setText(t("info_ethernet"))
@@ -1051,6 +1140,24 @@ class MainWindow(QWidget):
             self.files_wifi_url.setText(t("state_off"))
             self.wifi_copy_btn.setEnabled(False)
 
+        # Hotspot status
+        hotspot_on = is_hotspot_active()
+        ap_supported = is_wifi_ap_supported()
+        if not ap_supported:
+            self.hotspot_status.setText(t("hotspot_not_supported"))
+            self.hotspot_status.setStyleSheet(f"color: {RED}; font-weight: 600;")
+            self.hotspot_btn.setEnabled(False)
+        else:
+            self.hotspot_btn.setEnabled(True)
+            if hotspot_on:
+                self.hotspot_status.setText(t("hotspot_on"))
+                self.hotspot_status.setStyleSheet(f"color: {PRIMARY}; font-weight: 600;")
+                self.hotspot_btn.setText(t("hotspot_btn_disable"))
+            else:
+                self.hotspot_status.setText(t("hotspot_off"))
+                self.hotspot_status.setStyleSheet(f"color: {DIM}; font-weight: 600;")
+                self.hotspot_btn.setText(t("hotspot_btn_enable"))
+
         tooltip = f"{t('app_title')}: {t('state_on') if active else t('state_off')}"
         if self.tray:
             self.tray.setIcon(make_tray_icon(active))
@@ -1111,6 +1218,31 @@ class MainWindow(QWidget):
         success, msg = disable_sharing()
         if not success:
             self._error(t("err_sharing_stop"), msg)
+
+    # ---------- Hotspot Actions ----------
+
+    def toggle_hotspot(self) -> None:
+        if is_hotspot_active():
+            success, msg = disable_hotspot()
+            if not success:
+                self._error(t("err_hotspot_stop"), msg)
+        else:
+            ssid = self.hotspot_ssid_input.text().strip() or HOTSPOT_DEFAULT_SSID
+            password = self.hotspot_pass_input.text().strip()
+            self.settings["hotspot_ssid"] = ssid
+            self.settings["hotspot_pass"] = password
+            save_settings(self.settings)
+
+            self.hotspot_btn.setEnabled(False)
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                success, msg = enable_hotspot(ssid=ssid, password=password)
+                if not success:
+                    self._error(t("err_hotspot_start"), msg)
+            finally:
+                QApplication.restoreOverrideCursor()
+                self.hotspot_btn.setEnabled(True)
+        self.refresh()
 
     def _error(self, title: str, detail: str) -> None:
         box = QMessageBox(self)

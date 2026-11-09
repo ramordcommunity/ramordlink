@@ -198,9 +198,78 @@ def disable_sharing() -> tuple[bool, str]:
     return True, ""
 
 
-def is_samba_running() -> bool:
-    res = run_cmd(["systemctl", "is-active", "smb"])
-    if res.stdout.strip() == "active":
+HOTSPOT_CONNECTION_NAME = "RamordLink-Hotspot"
+HOTSPOT_DEFAULT_SSID = "RamordLink"
+HOTSPOT_DEFAULT_PASS = "ramordlink123"
+
+
+def is_wifi_ap_supported(wifi_iface: str | None = None) -> bool:
+    """Checks if the wireless device supports AP (Hotspot) mode."""
+    iface = wifi_iface or get_default_wifi()
+    if not iface:
+        return False
+    # Check via nmcli
+    res = run_cmd(["nmcli", "-t", "-f", "WIFI-PROPERTIES.AP", "device", "show", iface])
+    if "evet" in res.stdout.lower() or "yes" in res.stdout.lower():
         return True
-    res2 = run_cmd(["systemctl", "is-active", "smbd"])
-    return res2.stdout.strip() == "active"
+    # Fallback to iw list
+    res_iw = run_cmd(["iw", "list"])
+    if "AP" in res_iw.stdout:
+        return True
+    return False
+
+
+def is_hotspot_active() -> bool:
+    """Checks if the wireless hotspot connection is currently active."""
+    res = run_cmd(["nmcli", "-t", "-f", "NAME", "connection", "show", "--active"])
+    return HOTSPOT_CONNECTION_NAME in res.stdout.splitlines()
+
+
+def enable_hotspot(
+    wifi_iface: str | None = None,
+    ssid: str = HOTSPOT_DEFAULT_SSID,
+    password: str = HOTSPOT_DEFAULT_PASS,
+) -> tuple[bool, str]:
+    """Starts a Wi-Fi hotspot access point sharing the host connection."""
+    iface = wifi_iface or get_default_wifi()
+    if not iface:
+        return False, "Wi-Fi interface not found."
+
+    # Delete existing hotspot profile if present to ensure clean configuration
+    run_cmd(["nmcli", "connection", "delete", HOTSPOT_CONNECTION_NAME])
+
+    # Create hotspot profile
+    cmd = [
+        "nmcli", "connection", "add",
+        "type", "wifi",
+        "ifname", iface,
+        "con-name", HOTSPOT_CONNECTION_NAME,
+        "autoconnect", "no",
+        "ssid", ssid or HOTSPOT_DEFAULT_SSID,
+        "mode", "ap",
+        "ipv4.method", "shared",
+        "ipv6.method", "ignore",
+    ]
+    if password and len(password) >= 8:
+        cmd.extend([
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", password,
+        ])
+
+    add_res = run_cmd(cmd)
+    if add_res.returncode != 0:
+        return False, add_res.stderr or add_res.stdout
+
+    up_res = run_cmd(["nmcli", "--wait", "15", "connection", "up", HOTSPOT_CONNECTION_NAME], timeout=25)
+    if up_res.returncode != 0:
+        return False, up_res.stderr or up_res.stdout
+    return True, ""
+
+
+def disable_hotspot() -> tuple[bool, str]:
+    """Stops the active Wi-Fi hotspot."""
+    down_res = run_cmd(["nmcli", "--wait", "10", "connection", "down", HOTSPOT_CONNECTION_NAME], timeout=20)
+    if down_res.returncode != 0:
+        return False, down_res.stderr or down_res.stdout
+    return True, ""
+

@@ -132,6 +132,7 @@ THEMES = {
         "menu_sel": "rgba(26, 51, 40, 0.15)",
         "hero_bg": "#EAE5DC",
         "hero_border": "rgba(26, 51, 40, 0.22)",
+        "header_bg": "#EAE5DC",
         "switch_knob_on": "#F4F1EA",
         "switch_knob_off": "#2B2A27",
         "switch_off_track": "#D8D3C8",
@@ -152,6 +153,7 @@ THEMES = {
         "menu_sel": "rgba(88, 158, 123, 0.20)",
         "hero_bg": "#141d18",
         "hero_border": "rgba(88, 158, 123, 0.28)",
+        "header_bg": "#0d1310",
         "switch_knob_on": "#080C0A",
         "switch_knob_off": "#E8E4DA",
         "switch_off_track": "#1a2420",
@@ -197,6 +199,7 @@ def build_qss(theme_name: str) -> str:
     menu_sel = t_cfg["menu_sel"]
     hero_bg = t_cfg["hero_bg"]
     hero_border = t_cfg["hero_border"]
+    header_bg = t_cfg.get("header_bg", card)
 
     return f"""
 QWidget {{
@@ -210,6 +213,12 @@ QWidget#centralWidget, QWidget#content {{
     color: {text};
 }}
 QLabel, QCheckBox {{ background: transparent; }}
+QFrame#headerBar {{
+    background: {header_bg};
+    border-bottom: 1px solid {card_border};
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}}
 QFrame#card {{
     background: {card};
     border: 1px solid {card_border};
@@ -605,34 +614,26 @@ class MainWindow(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-        content = QWidget()
-        content.setObjectName("content")
-        root = QVBoxLayout(content)
-        root.setContentsMargins(22, 20, 22, 24)
-        root.setSpacing(14)
-
-        # ---------- Header Bar ----------
-        header = QHBoxLayout()
+        # ---------- Libadwaita-Style Pinned Header Bar ----------
+        header_frame = QFrame()
+        header_frame.setObjectName("headerBar")
+        header = QHBoxLayout(header_frame)
+        header.setContentsMargins(18, 12, 18, 12)
         header.setSpacing(12)
+
         logo = QLabel()
         logo_pixmap = None
         for p in (ICON_PATH, ASSET_ICON_PATH):
             if p.exists():
                 pm = QPixmap(str(p))
                 if not pm.isNull():
-                    logo_pixmap = pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    logo_pixmap = pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     break
         if logo_pixmap is not None:
             logo.setPixmap(logo_pixmap)
         else:
             logo.setPixmap(make_feature_icon("wifi", "#071013", PRIMARY))
-        logo.setFixedSize(48, 48)
+        logo.setFixedSize(40, 40)
 
         header_text = QVBoxLayout()
         header_text.setSpacing(1)
@@ -669,7 +670,21 @@ class MainWindow(QWidget):
         header.addWidget(self.theme_combo)
         header.addWidget(self.lang_combo)
         header.addWidget(self.help_btn)
-        root.addLayout(header)
+
+        outer.addWidget(header_frame)
+
+        # ---------- Scrollable Content Area ----------
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        content = QWidget()
+        content.setObjectName("content")
+        root = QVBoxLayout(content)
+        root.setContentsMargins(22, 16, 22, 24)
+        root.setSpacing(14)
 
         # ---------- Hero (Unified Internet Sharing Card) ----------
         hero = QFrame()

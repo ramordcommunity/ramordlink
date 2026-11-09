@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
@@ -756,6 +757,20 @@ class MainWindow(QWidget):
         files_top.addWidget(self.files_switch, 0, Qt.AlignVCenter)
         files_layout.addLayout(files_top)
 
+        # Selected folder display & Change button
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(8)
+        self.folder_path_lbl = QLabel(self._pretty_dir(self.files_dir))
+        self.folder_path_lbl.setObjectName("mono")
+        self.folder_path_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.change_folder_btn = QPushButton(t("btn_change_folder"))
+        self.change_folder_btn.setObjectName("soft")
+        self.change_folder_btn.setCursor(Qt.PointingHandCursor)
+        self.change_folder_btn.clicked.connect(self.select_files_directory)
+        folder_row.addWidget(self.folder_path_lbl, 1)
+        folder_row.addWidget(self.change_folder_btn)
+        files_layout.addLayout(folder_row)
+
         action_row = QHBoxLayout()
         action_row.setSpacing(8)
         self.open_btn = QPushButton(t("btn_open_folder"))
@@ -766,8 +781,13 @@ class MainWindow(QWidget):
         self.copy_btn.setObjectName("soft")
         self.copy_btn.setCursor(Qt.PointingHandCursor)
         self.copy_btn.clicked.connect(self.copy_files_url)
+        self.win_guide_btn = QPushButton(t("btn_show_win_files_guide"))
+        self.win_guide_btn.setObjectName("soft")
+        self.win_guide_btn.setCursor(Qt.PointingHandCursor)
+        self.win_guide_btn.clicked.connect(self.show_win_files_guide)
         action_row.addWidget(self.open_btn)
         action_row.addWidget(self.copy_btn)
+        action_row.addWidget(self.win_guide_btn)
         action_row.addStretch()
         files_layout.addLayout(action_row)
 
@@ -994,8 +1014,10 @@ class MainWindow(QWidget):
         self.mouse_help.setText(t("btn_show_win_setup"))
 
         self.files_title.setText(t("card_files_title"))
+        self.change_folder_btn.setText(t("btn_change_folder"))
         self.open_btn.setText(t("btn_open_folder"))
         self.copy_btn.setText(t("btn_copy_address"))
+        self.win_guide_btn.setText(t("btn_show_win_files_guide"))
         self.wifi_files_title.setText(t("wifi_files_title"))
         self.wifi_files_desc.setText(t("wifi_files_desc"))
 
@@ -1434,6 +1456,36 @@ class MainWindow(QWidget):
         except OSError:
             pass
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.files_dir)))
+
+    def select_files_directory(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self,
+            t("dialog_select_shared_folder"),
+            str(self.files_dir),
+        )
+        if chosen and Path(chosen) != self.files_dir:
+            self.files_dir = Path(chosen)
+            self.settings["files_dir"] = str(self.files_dir)
+            save_settings(self.settings)
+            self.folder_path_lbl.setText(self._pretty_dir(self.files_dir))
+            if self.file_server is not None or self.files_wanted:
+                self._close_file_server()
+                self.start_files(silent=True)
+            self.refresh()
+
+    def show_win_files_guide(self) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle(t("win_files_guide_title"))
+        box.setIcon(QMessageBox.Information)
+        box.setText(t("win_files_guide_title"))
+        box.setInformativeText(
+            f"{t('win_files_guide_step1_title')}\n\n"
+            f"{t('win_files_guide_step1_desc')}\n\n"
+            "----------------------------------------\n\n"
+            f"{t('win_files_guide_step2_title')}\n\n"
+            f"{t('win_files_guide_step2_desc')}"
+        )
+        box.exec()
 
     def set_autostart(self, enabled: bool) -> None:
         try:

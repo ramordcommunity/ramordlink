@@ -1105,6 +1105,95 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Transformez votre PC en borne Wi-Fi pour connecter téléphones et autres PC.",
         "it": "Trasforma il tuo PC in un hotspot Wi-Fi per connettere telefoni e altri PC.",
     },
+    # File Share Folder & Instructions
+    "btn_change_folder": {
+        "tr": "Klasörü Değiştir",
+        "en": "Change Folder",
+        "de": "Ordner Ändern",
+        "es": "Cambiar Carpeta",
+        "fr": "Changer de Dossier",
+        "it": "Cambia Cartella",
+    },
+    "btn_show_win_files_guide": {
+        "tr": "Windows'tan Nasıl Bağlanılır?",
+        "en": "How to Connect from Windows?",
+        "de": "Wie verbinde ich mich von Windows?",
+        "es": "¿Cómo conectarse desde Windows?",
+        "fr": "Comment se connecter depuis Windows ?",
+        "it": "Come connettersi da Windows?",
+    },
+    "win_files_guide_title": {
+        "tr": "Windows'tan Dosya Paylaşımına Bağlanma Rehberi",
+        "en": "Guide: Connecting to File Sharing from Windows",
+        "de": "Anleitung: Verbindung zur Dateifreigabe von Windows",
+        "es": "Guía: Conexión a la Carpeta Compartida desde Windows",
+        "fr": "Guide : Connexion au Partage de Fichiers depuis Windows",
+        "it": "Guida: Connessione alla Condivisione File da Windows",
+    },
+    "win_files_guide_step1_title": {
+        "tr": "1. Yöntem: Tarayıcıdan Tek Tıkla Bağlanma (En Kolay)",
+        "en": "Method 1: Connect via Browser (Easiest)",
+        "de": "Methode 1: Über den Browser verbinden (Am einfachsten)",
+        "es": "Método 1: Conectar por Navegador (Más Fácil)",
+        "fr": "Méthode 1 : Se connecter via Navigateur (Le plus simple)",
+        "it": "Metodo 1: Connetti via Browser (Più Semplice)",
+    },
+    "win_files_guide_step1_desc": {
+        "tr": "Windows PC'de Chrome, Edge vb. tarayıcınızı açın ve adres çubuğuna şunu yazın:\n"
+              "http://192.168.50.1:8080\n"
+              "(Dosyaları sürükleyip bırakarak yükleyebilir veya anında indirebilirsiniz.)",
+        "en": "Open Chrome, Edge, etc. on your Windows PC and enter in the address bar:\n"
+              "http://192.168.50.1:8080\n"
+              "(You can drag & drop files to upload or click to download immediately.)",
+        "de": "Öffnen Sie Chrome, Edge usw. auf Ihrem Windows-PC und geben Sie ein:\n"
+              "http://192.168.50.1:8080\n"
+              "(Dateien per Drag & Drop hochladen oder direkt herunterladen.)",
+        "es": "Abra Chrome, Edge, etc. en su PC con Windows y escriba:\n"
+              "http://192.168.50.1:8080\n"
+              "(Puede arrastrar y soltar archivos para subir o descargar directamente.)",
+        "fr": "Ouvrez Chrome, Edge, etc. sur Windows et entrez dans la barre d'adresse :\n"
+              "http://192.168.50.1:8080\n"
+              "(Glissez-déposez des fichiers pour téléverser ou téléchargez directement.)",
+        "it": "Apri Chrome, Edge, ecc. su Windows e inserisci nella barra degli indirizzi:\n"
+              "http://192.168.50.1:8080\n"
+              "(Trascina i file per caricarli o scaricali direttamente.)",
+    },
+    "win_files_guide_step2_title": {
+        "tr": "2. Yöntem: Windows Dosya Gezgini (Ağ Klasörü / SMB)",
+        "en": "Method 2: Windows File Explorer (Network Folder / SMB)",
+        "de": "Methode 2: Windows Datei-Explorer (Netzwerkordner / SMB)",
+        "es": "Método 2: Explorador de Archivos de Windows (Carpeta de Red / SMB)",
+        "fr": "Méthode 2 : Explorateur de Fichiers Windows (Dossier Réseau / SMB)",
+        "it": "Metodo 2: Esplora File di Windows (Cartella di Rete / SMB)",
+    },
+    "win_files_guide_step2_desc": {
+        "tr": "Windows PC'de klavyeden [Win + R] tuşlarına basın (veya Dosya Gezgini adres çubuğuna tıklayın):\n"
+              "\\\\192.168.50.1\\Genel\n"
+              "yazıp Enter'a basın. Paylaşılan klasör doğrudan Windows içinde normal bir yerel klasör gibi açılacaktır.",
+        "en": "On your Windows PC, press [Win + R] (or click the File Explorer address bar):\n"
+              "Type: \\\\192.168.50.1\\Genel\n"
+              "and press Enter. The shared folder will open directly like a native folder.",
+        "de": "Drücken Sie auf dem Windows-PC [Win + R] (oder in die Explorer-Adressleiste):\n"
+              "Eingeben: \\\\192.168.50.1\\Genel\n"
+              "und Enter drücken. Der Ordner öffnet sich wie ein normaler lokaler Ordner.",
+        "es": "En su PC con Windows, presione [Win + R] (o en la barra del Explorador):\n"
+              "Escriba: \\\\192.168.50.1\\Genel\n"
+              "y presione Enter. La carpeta se abrirá directamente como una carpeta nativa.",
+        "fr": "Sur Windows, appuyez sur [Win + R] (ou dans la barre d'adresse) :\n"
+              "Tapez : \\\\192.168.50.1\\Genel\n"
+              "et validez. Le dossier s'ouvrira comme un dossier Windows classique.",
+        "it": "Su Windows, premi [Win + R] (o nella barra degli indirizzi di Esplora File):\n"
+              "Digita: \\\\192.168.50.1\\Genel\n"
+              "e premi Invio. La cartella si aprirà direttamente come una cartella normale.",
+    },
+    "dialog_select_shared_folder": {
+        "tr": "Paylaşılacak Klasörü Seçin",
+        "en": "Select Folder to Share",
+        "de": "Freizugebenden Ordner auswählen",
+        "es": "Seleccione la Carpeta a Compartir",
+        "fr": "Sélectionner le Dossier à Partager",
+        "it": "Seleziona la Cartella da Condividere",
+    },
 }
 
 CURRENT_LANG = "tr"

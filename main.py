@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -113,19 +114,250 @@ ICON_PATH = Path.home() / ".local/share/icons/hicolor/scalable/apps/ramord-link.
 APP_DIR = Path(__file__).resolve().parent
 ASSET_ICON_PATH = APP_DIR / "assets/ramord-link.svg"
 
-# Palette: RamordCommunity Obsidian Luxury & Dark Turquoise Theme (Consistent with RamordCast)
-PRIMARY = "#14c8b2"      # Vibrant Dark Turquoise Accent
-PRIMARY_HOVER = "#18e0c8"
-PRIMARY_DARK = "#005a48"
-BG_GRADIENT_START = "#102127"
-BG_GRADIENT_MID = "#0b171b"
-BG_GRADIENT_END = "#071013"
-CARD_BG = "rgba(11, 23, 27, 0.72)"
-CARD_BORDER = "rgba(20, 200, 178, 0.18)"
-TEXT = "#f3f8f8"
-DIM = "#7f9997"
+# Theme Palettes: Solid Day & Night Modes (User-Specified)
+THEMES = {
+    "day": {
+        "bg": "#F4F1EA",
+        "card": "#EFECE6",
+        "card_border": "rgba(26, 51, 40, 0.15)",
+        "text": "#2B2A27",
+        "dim": "#6B6862",
+        "accent": "#1A3328",
+        "accent_hover": "#284e3e",
+        "accent_text": "#F4F1EA",
+        "input_bg": "#E6E2DA",
+        "input_border": "rgba(26, 51, 40, 0.25)",
+        "scroll_handle": "rgba(26, 51, 40, 0.25)",
+        "menu_bg": "#EFECE6",
+        "menu_sel": "rgba(26, 51, 40, 0.15)",
+        "hero_bg": "#EAE5DC",
+        "hero_border": "rgba(26, 51, 40, 0.22)",
+        "switch_knob_on": "#F4F1EA",
+        "switch_knob_off": "#2B2A27",
+        "switch_off_track": "#D8D3C8",
+    },
+    "night": {
+        "bg": "#080C0A",
+        "card": "#101613",
+        "card_border": "rgba(88, 158, 123, 0.20)",
+        "text": "#E8E4DA",
+        "dim": "#8A948E",
+        "accent": "#589E7B",
+        "accent_hover": "#6db893",
+        "accent_text": "#080C0A",
+        "input_bg": "#101613",
+        "input_border": "rgba(88, 158, 123, 0.30)",
+        "scroll_handle": "rgba(88, 158, 123, 0.25)",
+        "menu_bg": "#101613",
+        "menu_sel": "rgba(88, 158, 123, 0.20)",
+        "hero_bg": "#141d18",
+        "hero_border": "rgba(88, 158, 123, 0.28)",
+        "switch_knob_on": "#080C0A",
+        "switch_knob_off": "#E8E4DA",
+        "switch_off_track": "#1a2420",
+    }
+}
+
+ACTIVE_THEME_KEY = "night"
+PRIMARY = THEMES["night"]["accent"]
+PRIMARY_HOVER = THEMES["night"]["accent_hover"]
+PRIMARY_DARK = THEMES["night"]["accent"]
+TEXT = THEMES["night"]["text"]
+DIM = THEMES["night"]["dim"]
 AMBER = "#f59e0b"
 RED = "#ef4444"
+
+def detect_system_theme() -> str:
+    try:
+        res = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
+                             capture_output=True, text=True, timeout=1)
+        out = res.stdout.lower()
+        if "dark" in out:
+            return "night"
+        if "light" in out or "default" in out:
+            return "day"
+    except Exception:
+        pass
+    return "night"
+
+def build_qss(theme_name: str) -> str:
+    t_cfg = THEMES.get(theme_name, THEMES["night"])
+    bg = t_cfg["bg"]
+    card = t_cfg["card"]
+    card_border = t_cfg["card_border"]
+    text = t_cfg["text"]
+    dim = t_cfg["dim"]
+    accent = t_cfg["accent"]
+    accent_hover = t_cfg["accent_hover"]
+    accent_text = t_cfg["accent_text"]
+    input_bg = t_cfg["input_bg"]
+    input_border = t_cfg["input_border"]
+    scroll_handle = t_cfg["scroll_handle"]
+    menu_bg = t_cfg["menu_bg"]
+    menu_sel = t_cfg["menu_sel"]
+    hero_bg = t_cfg["hero_bg"]
+    hero_border = t_cfg["hero_border"]
+
+    return f"""
+QWidget {{
+    background: transparent;
+    color: {text};
+    font-family: "Noto Sans", "Segoe UI", sans-serif;
+    font-size: 13px;
+}}
+QWidget#centralWidget, QWidget#content {{
+    background: {bg};
+    color: {text};
+}}
+QLabel, QCheckBox {{ background: transparent; }}
+QFrame#card {{
+    background: {card};
+    border: 1px solid {card_border};
+    border-radius: 16px;
+}}
+QFrame#hero {{
+    background: {hero_bg};
+    border: 1px solid {hero_border};
+    border-radius: 18px;
+}}
+QLabel#title {{ font-size: 21px; font-weight: 800; color: {text}; }}
+QLabel#subtitle {{ color: {dim}; font-size: 12px; }}
+QLabel#state {{ font-size: 24px; font-weight: 800; }}
+QLabel#sectionTitle {{ font-size: 16px; font-weight: 800; color: {text}; }}
+QLabel#key {{ color: {dim}; font-size: 12px; }}
+QLabel#value {{ font-weight: 600; color: {text}; }}
+QLabel#mono {{
+    color: {accent};
+    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace;
+    font-size: 12px;
+}}
+QPushButton#toggle {{
+    border: none; border-radius: 14px; padding: 15px;
+    font-size: 15px; font-weight: 800; color: {accent_text};
+    background: {accent};
+}}
+QPushButton#toggle:hover {{
+    background: {accent_hover};
+}}
+QPushButton#toggle:pressed {{
+    background: {accent};
+    color: {accent_text};
+}}
+QPushButton#toggle[off="true"] {{
+    background: {card};
+    color: {dim};
+    border: 1px solid {card_border};
+}}
+QPushButton#toggle[off="true"]:hover {{
+    background: {hero_bg};
+    border-color: {accent};
+    color: {text};
+}}
+QPushButton#ghost {{
+    background: {card};
+    border: 1px solid {card_border};
+    border-radius: 10px; padding: 8px 14px; color: {text}; font-weight: 600;
+}}
+QPushButton#ghost:hover {{
+    background: {hero_bg};
+    border-color: {accent};
+    color: {accent};
+}}
+QPushButton#soft {{
+    background: {card};
+    border: 1px solid {card_border};
+    border-radius: 10px; padding: 9px 14px; color: {accent}; font-weight: 600;
+}}
+QPushButton#soft:hover {{
+    background: {hero_bg};
+    border-color: {accent};
+}}
+QPushButton#help {{
+    background: {card};
+    border: 1px solid {card_border};
+    border-radius: 12px; padding: 8px 13px; color: {dim}; font-weight: 600;
+}}
+QPushButton#help:hover {{
+    color: {accent};
+    border-color: {accent};
+    background: {hero_bg};
+}}
+QPushButton#edge {{
+    background: {card};
+    border: 1px solid {card_border};
+    border-radius: 9px;
+    padding: 8px 16px; color: {dim}; font-weight: 700;
+}}
+QPushButton#edge:hover {{
+    background: {hero_bg};
+    color: {text};
+}}
+QPushButton#edge[selected="true"] {{
+    background: {accent};
+    border-color: {accent};
+    color: {accent_text};
+}}
+QPushButton#disclosure {{
+    background: transparent; border: none; color: {accent};
+    font-weight: 700; font-size: 12px; text-align: left; padding: 4px 2px;
+}}
+QPushButton#disclosure:hover {{ color: {accent_hover}; }}
+QComboBox {{
+    background: {card};
+    border: 1px solid {input_border};
+    border-radius: 8px; padding: 5px 12px; min-width: 95px;
+    font-weight: 600; color: {text};
+}}
+QComboBox:hover {{ border-color: {accent}; }}
+QComboBox::drop-down {{ border: none; width: 18px; }}
+QComboBox QAbstractItemView {{
+    background: {menu_bg};
+    border: 1px solid {input_border};
+    border-radius: 8px;
+    color: {text};
+    selection-background-color: {menu_sel};
+    selection-color: {accent};
+    padding: 4px;
+}}
+QCheckBox {{ color: {dim}; spacing: 8px; }}
+QCheckBox::indicator {{
+    width: 16px; height: 16px; border-radius: 5px;
+    border: 1px solid {input_border}; background: {card};
+}}
+QCheckBox::indicator:checked {{
+    background: {accent};
+    border-color: {accent};
+}}
+QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
+QScrollBar::handle:vertical {{
+    background: {scroll_handle}; min-height: 28px; border-radius: 4px;
+}}
+QScrollBar::handle:vertical:hover {{ background: {accent}; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
+QLineEdit {{
+    background: {input_bg};
+    border: 1px solid {input_border};
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: {text};
+    font-size: 13px;
+}}
+QLineEdit:focus {{
+    border-color: {accent};
+}}
+QMenu {{
+    background: {menu_bg};
+    border: 1px solid {card_border};
+    border-radius: 10px; padding: 6px;
+    color: {text};
+}}
+QMenu::item {{ padding: 7px 18px; border-radius: 6px; }}
+QMenu::item:selected {{ background: {menu_sel}; color: {accent}; }}
+"""
+
 
 
 def load_settings() -> dict:
@@ -273,186 +505,26 @@ class Switch(QAbstractButton):
     knob = Property(float, _get_knob, _set_knob)
 
     def paintEvent(self, event) -> None:
+        t_cfg = THEMES.get(ACTIVE_THEME_KEY, THEMES["night"])
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
         if not self.isEnabled():
-            track = QColor("#1e293b")
+            track = QColor(t_cfg["switch_off_track"])
         else:
-            track = QColor(PRIMARY if self.isChecked() else "#1a2c33")
+            track = QColor(t_cfg["accent"] if self.isChecked() else t_cfg["switch_off_track"])
         painter.setPen(Qt.NoPen)
         painter.setBrush(track)
         painter.drawRoundedRect(QRectF(rect), rect.height() / 2, rect.height() / 2)
         diameter = rect.height() - 6
         x = rect.x() + 3 + (rect.width() - diameter - 6) * self._knob
-        painter.setBrush(QColor("#071013" if self.isChecked() else "#f3f8f8"))
+        knob_color = t_cfg["switch_knob_on"] if self.isChecked() else t_cfg["switch_knob_off"]
+        painter.setBrush(QColor(knob_color))
         painter.drawEllipse(QRectF(x, rect.y() + 3, diameter, diameter))
         painter.end()
 
 
-STYLE = f"""
-QWidget {{
-    background: transparent;
-    color: {TEXT};
-    font-family: "Noto Sans", "Segoe UI", sans-serif;
-    font-size: 13px;
-}}
-QWidget#centralWidget, QWidget#content {{
-    background: qradialgradient(cx:0.5, cy:0.25, radius:0.85,
-        stop:0 {BG_GRADIENT_START}, stop:0.45 {BG_GRADIENT_MID}, stop:0.85 {BG_GRADIENT_END});
-    color: {TEXT};
-}}
-QLabel, QCheckBox {{ background: transparent; }}
-QFrame#card {{
-    background: {CARD_BG};
-    border: 1px solid {CARD_BORDER};
-    border-radius: 16px;
-}}
-QFrame#hero {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 rgba(20, 200, 178, 0.16), stop:1 rgba(0, 90, 72, 0.22));
-    border: 1px solid rgba(20, 200, 178, 0.32);
-    border-radius: 18px;
-}}
-QLabel#title {{ font-size: 21px; font-weight: 800; color: {TEXT}; }}
-QLabel#subtitle {{ color: {DIM}; font-size: 12px; }}
-QLabel#state {{ font-size: 24px; font-weight: 800; }}
-QLabel#sectionTitle {{ font-size: 16px; font-weight: 800; color: {TEXT}; }}
-QLabel#key {{ color: {DIM}; font-size: 12px; }}
-QLabel#value {{ font-weight: 600; color: {TEXT}; }}
-QLabel#mono {{
-    color: {PRIMARY_HOVER};
-    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace;
-    font-size: 12px;
-}}
-QPushButton#toggle {{
-    border: none; border-radius: 14px; padding: 15px;
-    font-size: 15px; font-weight: 800; color: #071013;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 {PRIMARY_HOVER}, stop:1 {PRIMARY});
-}}
-QPushButton#toggle:hover {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #22fae0, stop:1 {PRIMARY_HOVER});
-}}
-QPushButton#toggle:pressed {{
-    background: {PRIMARY_DARK};
-    color: {TEXT};
-}}
-QPushButton#toggle[off="true"] {{
-    background: rgba(255, 255, 255, 0.08);
-    color: {TEXT};
-    border: 1px solid rgba(255, 255, 255, 0.12);
-}}
-QPushButton#toggle[off="true"]:hover {{
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(20, 200, 178, 0.4);
-}}
-QPushButton#ghost {{
-    background: rgba(11, 23, 27, 0.8);
-    border: 1px solid {CARD_BORDER};
-    border-radius: 10px; padding: 8px 14px; color: {TEXT}; font-weight: 600;
-}}
-QPushButton#ghost:hover {{
-    background: rgba(20, 200, 178, 0.15);
-    border-color: {PRIMARY};
-    color: {PRIMARY_HOVER};
-}}
-QPushButton#soft {{
-    background: rgba(20, 200, 178, 0.12);
-    border: 1px solid rgba(20, 200, 178, 0.25);
-    border-radius: 10px; padding: 9px 14px; color: {PRIMARY_HOVER}; font-weight: 600;
-}}
-QPushButton#soft:hover {{
-    background: rgba(20, 200, 178, 0.22);
-    border-color: {PRIMARY};
-}}
-QPushButton#help {{
-    background: rgba(11, 23, 27, 0.85);
-    border: 1px solid {CARD_BORDER};
-    border-radius: 12px; padding: 8px 13px; color: {DIM}; font-weight: 600;
-}}
-QPushButton#help:hover {{
-    color: {PRIMARY_HOVER};
-    border-color: {PRIMARY};
-    background: rgba(20, 200, 178, 0.12);
-}}
-QPushButton#edge {{
-    background: rgba(7, 16, 19, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 9px;
-    padding: 8px 16px; color: {DIM}; font-weight: 700;
-}}
-QPushButton#edge:hover {{
-    background: rgba(20, 200, 178, 0.1);
-    color: {TEXT};
-}}
-QPushButton#edge[selected="true"] {{
-    background: rgba(20, 200, 178, 0.2);
-    border-color: {PRIMARY};
-    color: {PRIMARY};
-}}
-QPushButton#disclosure {{
-    background: transparent; border: none; color: {PRIMARY};
-    font-weight: 700; font-size: 12px; text-align: left; padding: 4px 2px;
-}}
-QPushButton#disclosure:hover {{ color: {PRIMARY_HOVER}; }}
-QComboBox {{
-    background: #0b171b;
-    border: 1px solid rgba(20, 200, 178, 0.3);
-    border-radius: 8px; padding: 5px 12px; min-width: 95px;
-    font-weight: 600; color: {TEXT};
-}}
-QComboBox:hover {{ border-color: {PRIMARY}; }}
-QComboBox::drop-down {{ border: none; width: 18px; }}
-QComboBox QAbstractItemView {{
-    background: #0b171b;
-    border: 1px solid rgba(20, 200, 178, 0.3);
-    border-radius: 8px;
-    color: {TEXT};
-    selection-background-color: rgba(20, 200, 178, 0.25);
-    selection-color: {PRIMARY_HOVER};
-    padding: 4px;
-}}
-QCheckBox {{ color: {DIM}; spacing: 8px; }}
-QCheckBox::indicator {{
-    width: 16px; height: 16px; border-radius: 5px;
-    border: 1px solid rgba(20, 200, 178, 0.3); background: #0b171b;
-}}
-QCheckBox::indicator:checked {{
-    background: {PRIMARY};
-    border-color: {PRIMARY};
-}}
-QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
-QScrollBar::handle:vertical {{
-    background: rgba(20, 200, 178, 0.25); min-height: 28px; border-radius: 4px;
-}}
-QScrollBar::handle:vertical:hover {{ background: {PRIMARY}; }}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-    background: transparent;
-}}
-QLineEdit {{
-    background: #0b171b;
-    border: 1px solid rgba(20, 200, 178, 0.3);
-    border-radius: 8px;
-    padding: 6px 12px;
-    color: {TEXT};
-    font-size: 13px;
-}}
-QLineEdit:focus {{
-    border-color: {PRIMARY};
-}}
-QMenu {{
-    background: #0b171b;
-    border: 1px solid rgba(20, 200, 178, 0.3);
-    border-radius: 10px; padding: 6px;
-    color: {TEXT};
-}}
-QMenu::item {{ padding: 7px 18px; border-radius: 6px; }}
-QMenu::item:selected {{ background: rgba(20, 200, 178, 0.2); color: {PRIMARY_HOVER}; }}
-"""
-
+STYLE = build_qss(ACTIVE_THEME_KEY)
 
 
 class MainWindow(QWidget):
@@ -469,6 +541,12 @@ class MainWindow(QWidget):
             set_lang(saved_lang)
         else:
             set_lang(detect_system_language())
+
+        # Initialize theme preference: 'auto', 'day', or 'night'
+        self.theme_mode = self.settings.get("theme", "auto")
+        self.mouse_icon_lbl: QLabel | None = None
+        self.files_icon_lbl: QLabel | None = None
+        self._apply_active_theme(self._resolve_theme_key(self.theme_mode), save=False)
 
         # Network interface settings
         eth_ifaces, wifi_ifaces = detect_interfaces()
@@ -574,6 +652,12 @@ class MainWindow(QWidget):
         self.lang_combo.setCurrentIndex(current_idx)
         self.lang_combo.currentIndexChanged.connect(self._on_language_changed)
 
+        # Theme Switcher Dropdown (Auto, Day, Night)
+        self.theme_combo = QComboBox()
+        self.theme_combo.setCursor(Qt.PointingHandCursor)
+        self._rebuild_theme_combo()
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+
         self.help_btn = QPushButton(t("btn_help"))
         self.help_btn.setObjectName("help")
         self.help_btn.setCursor(Qt.PointingHandCursor)
@@ -582,6 +666,7 @@ class MainWindow(QWidget):
         header.addWidget(logo)
         header.addLayout(header_text)
         header.addStretch()
+        header.addWidget(self.theme_combo)
         header.addWidget(self.lang_combo)
         header.addWidget(self.help_btn)
         root.addLayout(header)
@@ -682,9 +767,10 @@ class MainWindow(QWidget):
 
         mouse_top = QHBoxLayout()
         mouse_top.setSpacing(12)
-        mouse_icon = QLabel()
-        mouse_icon.setPixmap(make_feature_icon("mouse", PRIMARY, "rgba(20, 200, 178, 0.15)"))
-        mouse_icon.setFixedSize(44, 44)
+        self.mouse_icon_lbl = QLabel()
+        self._update_feature_icon(self.mouse_icon_lbl, "mouse")
+        self.mouse_icon_lbl.setFixedSize(44, 44)
+        mouse_icon = self.mouse_icon_lbl
         mouse_text = QVBoxLayout()
         mouse_text.setSpacing(1)
         self.mouse_title = QLabel(t("card_mouse_title"))
@@ -757,9 +843,10 @@ class MainWindow(QWidget):
 
         files_top = QHBoxLayout()
         files_top.setSpacing(12)
-        files_icon = QLabel()
-        files_icon.setPixmap(make_feature_icon("folder", PRIMARY, "rgba(20, 200, 178, 0.15)"))
-        files_icon.setFixedSize(44, 44)
+        self.files_icon_lbl = QLabel()
+        self._update_feature_icon(self.files_icon_lbl, "folder")
+        self.files_icon_lbl.setFixedSize(44, 44)
+        files_icon = self.files_icon_lbl
         files_text = QVBoxLayout()
         files_text.setSpacing(1)
         self.files_title = QLabel(t("card_files_title"))
@@ -996,6 +1083,62 @@ class MainWindow(QWidget):
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
             self.toggle_window()
 
+    def _resolve_theme_key(self, mode: str) -> str:
+        if mode in ("day", "night"):
+            return mode
+        return detect_system_theme()
+
+    def _apply_active_theme(self, theme_key: str, save: bool = True) -> None:
+        global ACTIVE_THEME_KEY, PRIMARY, PRIMARY_HOVER, PRIMARY_DARK, TEXT, DIM
+        ACTIVE_THEME_KEY = theme_key
+        t_cfg = THEMES.get(theme_key, THEMES["night"])
+        PRIMARY = t_cfg["accent"]
+        PRIMARY_HOVER = t_cfg["accent_hover"]
+        PRIMARY_DARK = t_cfg["accent"]
+        TEXT = t_cfg["text"]
+        DIM = t_cfg["dim"]
+
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(build_qss(theme_key))
+
+        if self.mouse_icon_lbl is not None:
+            self._update_feature_icon(self.mouse_icon_lbl, "mouse")
+        if self.files_icon_lbl is not None:
+            self._update_feature_icon(self.files_icon_lbl, "folder")
+
+        if hasattr(self, "mouse_switch"):
+            self.mouse_switch.update()
+        if hasattr(self, "files_switch"):
+            self.files_switch.update()
+
+        if save:
+            self.settings["theme"] = self.theme_mode
+            save_settings(self.settings)
+
+    def _update_feature_icon(self, label: QLabel, kind: str) -> None:
+        t_cfg = THEMES.get(ACTIVE_THEME_KEY, THEMES["night"])
+        label.setPixmap(make_feature_icon(kind, t_cfg["accent"], t_cfg["card_border"]))
+
+    def _rebuild_theme_combo(self) -> None:
+        if not hasattr(self, "theme_combo"):
+            return
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+        self.theme_combo.addItem(f"{t('theme_auto')}", "auto")
+        self.theme_combo.addItem(f"{t('theme_day')}", "day")
+        self.theme_combo.addItem(f"{t('theme_night')}", "night")
+        idx = {"auto": 0, "day": 1, "night": 2}.get(self.theme_mode, 0)
+        self.theme_combo.setCurrentIndex(idx)
+        self.theme_combo.blockSignals(False)
+
+    def _on_theme_changed(self, index: int) -> None:
+        mode = self.theme_combo.itemData(index)
+        if mode in ("auto", "day", "night"):
+            self.theme_mode = mode
+            self._apply_active_theme(self._resolve_theme_key(mode), save=True)
+            self.refresh()
+
     def _on_language_changed(self, index: int) -> None:
         lang_code = self.lang_combo.itemData(index)
         if lang_code and lang_code in LANGUAGES:
@@ -1016,6 +1159,7 @@ class MainWindow(QWidget):
         self.title_lbl.setText(t("app_title"))
         self.subtitle_lbl.setText(t("app_subtitle"))
         self.help_btn.setText(t("btn_help"))
+        self._rebuild_theme_combo()
 
         self.btn_tab_eth.setText(t("tab_ethernet"))
         self.btn_tab_hotspot.setText(t("tab_wireless"))

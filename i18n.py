@@ -1202,6 +1202,30 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Sélectionner le Dossier à Partager",
         "it": "Seleziona la Cartella da Condividere",
     },
+    "theme_auto": {
+        "tr": "Sistem Teması",
+        "en": "System Theme",
+        "de": "Systemthema",
+        "es": "Tema del Sistema",
+        "fr": "Thème du Système",
+        "it": "Tema di Sistema",
+    },
+    "theme_day": {
+        "tr": "Gündüz Modu",
+        "en": "Day Mode",
+        "de": "Tagmodus",
+        "es": "Modo Día",
+        "fr": "Mode Jour",
+        "it": "Modalità Giorno",
+    },
+    "theme_night": {
+        "tr": "Gece Modu",
+        "en": "Night Mode",
+        "de": "Nachtmodus",
+        "es": "Modo Noche",
+        "fr": "Mode Nuit",
+        "it": "Modalità Notte",
+    },
 }
 
 CURRENT_LANG = "tr"

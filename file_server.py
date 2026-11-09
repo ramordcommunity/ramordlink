@@ -36,33 +36,57 @@ PAGE_TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{web_title}</title>
 <style>
-  * {{ box-sizing: border-box; }}
-  body {{ margin: 0; background: radial-gradient(circle at 50% 25%, #102127 0%, #0b171b 45%, #071013 85%); color: #f3f8f8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }}
-  .wrap {{ max-width: 820px; margin: 0 auto; padding: 32px 20px 60px; }}
-  .top-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid rgba(20, 200, 178, 0.2); padding-bottom: 16px; }}
-  .brand {{ display: flex; align-items: center; gap: 12px; }}
-  .brand-logo {{ width: 42px; height: 42px; border-radius: 10px; background: rgba(7, 16, 19, 0.85); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(20, 200, 178, 0.25); border: 1px solid rgba(20, 200, 178, 0.3); overflow: hidden; }}
-  .brand-logo img {{ width: 100%; height: 100%; object-fit: contain; }}
-  h1 {{ font-size: 20px; margin: 0; font-weight: 700; color: #f3f8f8; }}
-  .lang-picker a {{ color: #7f9997; text-decoration: none; margin-left: 10px; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: all .2s ease; }}
-  .lang-picker a:hover {{ color: #14c8b2; background: rgba(20, 200, 178, 0.1); }}
-  .lang-picker a.active {{ color: #071013; background: #14c8b2; font-weight: 700; }}
-  .sub {{ color: #7f9997; font-size: 13px; margin: 0 0 20px; word-break: break-all; }}
-  .drop {{ border: 2px dashed rgba(20, 200, 178, 0.35); border-radius: 16px; padding: 32px; text-align: center; color: #7f9997; background: rgba(11, 23, 27, 0.7); backdrop-filter: blur(10px); transition: all .2s ease; cursor: pointer; }}
-  .drop:hover, .drop.over {{ border-color: #14c8b2; background: rgba(20, 200, 178, 0.08); color: #f3f8f8; box-shadow: 0 6px 25px rgba(20, 200, 178, 0.15); }}
-  .drop p {{ margin: 6px 0; }}
-  .drop strong {{ color: #14c8b2; font-size: 16px; }}
-  input[type=file] {{ display: none; }}
-  .status {{ color: #14c8b2; min-height: 20px; font-size: 13px; margin-top: 10px; font-weight: 600; }}
-  table {{ width: 100%; border-collapse: collapse; margin-top: 28px; background: rgba(11, 23, 27, 0.75); border: 1px solid rgba(20, 200, 178, 0.16); border-radius: 14px; overflow: hidden; }}
-  th {{ text-align: left; color: #7f9997; font-size: 12px; font-weight: 700; padding: 13px 16px; border-bottom: 1px solid rgba(20, 200, 178, 0.18); background: rgba(7, 16, 19, 0.85); }}
-  td {{ padding: 13px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; }}
-  td:nth-child(2), td:nth-child(3) {{ color: #7f9997; white-space: nowrap; font-size: 13px; }}
-  a.file-link {{ color: #18e0c8; text-decoration: none; font-weight: 600; }}
-  a.file-link:hover {{ text-decoration: underline; color: #14c8b2; }}
-  .empty {{ text-align: center; color: #7f9997; padding: 36px; font-size: 14px; }}
-  .footer {{ margin-top: 40px; text-align: center; color: #7f9997; font-size: 12px; }}
-  .footer a {{ color: #14c8b2; text-decoration: none; }}
+  :root {
+    --bg: #F4F1EA;
+    --card: #EFECE6;
+    --text: #2B2A27;
+    --dim: #6B6862;
+    --accent: #1A3328;
+    --accent-hover: #284e3e;
+    --accent-text: #F4F1EA;
+    --card-border: rgba(26, 51, 40, 0.15);
+    --hover-bg: rgba(26, 51, 40, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #080C0A;
+      --card: #101613;
+      --text: #E8E4DA;
+      --dim: #8A948E;
+      --accent: #589E7B;
+      --accent-hover: #6db893;
+      --accent-text: #080C0A;
+      --card-border: rgba(88, 158, 123, 0.20);
+      --hover-bg: rgba(88, 158, 123, 0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 32px 20px 60px; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { width: 42px; height: 42px; border-radius: 10px; background: var(--card); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px var(--hover-bg); border: 1px solid var(--card-border); overflow: hidden; }
+  .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+  h1 { font-size: 20px; margin: 0; font-weight: 700; color: var(--text); }
+  .lang-picker a { color: var(--dim); text-decoration: none; margin-left: 10px; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: all .2s ease; }
+  .lang-picker a:hover { color: var(--accent); background: var(--hover-bg); }
+  .lang-picker a.active { color: var(--accent-text); background: var(--accent); font-weight: 700; }
+  .sub { color: var(--dim); font-size: 13px; margin: 0 0 20px; word-break: break-all; }
+  .drop { border: 2px dashed var(--card-border); border-radius: 16px; padding: 32px; text-align: center; color: var(--dim); background: var(--card); transition: all .2s ease; cursor: pointer; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--hover-bg); color: var(--text); box-shadow: 0 6px 20px var(--hover-bg); }
+  .drop p { margin: 6px 0; }
+  .drop strong { color: var(--accent); font-size: 16px; }
+  input[type=file] { display: none; }
+  .status { color: var(--accent); min-height: 20px; font-size: 13px; margin-top: 10px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; }
+  th { text-align: left; color: var(--dim); font-size: 12px; font-weight: 700; padding: 13px 16px; border-bottom: 1px solid var(--card-border); background: var(--card); }
+  td { padding: 13px 16px; border-bottom: 1px solid var(--card-border); font-size: 14px; }
+  td:nth-child(2), td:nth-child(3) { color: var(--dim); white-space: nowrap; font-size: 13px; }
+  a.file-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+  a.file-link:hover { text-decoration: underline; color: var(--accent-hover); }
+  .empty { text-align: center; color: var(--dim); padding: 36px; font-size: 14px; }
+  .footer { margin-top: 40px; text-align: center; color: var(--dim); font-size: 12px; }
+  .footer a { color: var(--accent); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -96,45 +120,50 @@ PAGE_TEMPLATE = """<!doctype html>
   </table>
 
   <div class="footer">
-    Ramord Link &middot; <a href="mailto:ramordhelp@gmail.com" style="color:#58a6ff; text-decoration:none;">ramordhelp@gmail.com</a>
+    Ramord Link &middot; <a href="mailto:ramordhelp@gmail.com">ramordhelp@gmail.com</a>
   </div>
 </div>
+
 <script>
-const drop = document.getElementById('drop');
-const input = document.getElementById('file');
-const status = document.getElementById('status');
-const lang = '{lang}';
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('file');
+  const status = document.getElementById('status');
 
-async function upload(files) {{
-  if (!files || !files.length) return;
-  status.style.color = '#e3b341';
-  for (const f of files) {{
-    status.textContent = '{web_uploading} ' + f.name;
-    try {{
-      const r = await fetch('/upload/' + encodeURIComponent(f.name), {{ method: 'PUT', body: f }});
-      if (!r.ok) {{
-        const errText = await r.text();
-        throw new Error(errText || 'HTTP ' + r.status);
-      }}
-    }} catch (e) {{
-      status.style.color = '#f85149';
-      status.textContent = 'Error: ' + f.name + ' (' + e.message + ')';
-      return;
-    }}
+  ['dragenter', 'dragover'].forEach(e => {{
+    drop.addEventListener(e, ev => {{ ev.preventDefault(); ev.stopPropagation(); drop.classList.add('over'); }}, false);
+  }});
+  ['dragleave', 'drop'].forEach(e => {{
+    drop.addEventListener(e, ev => {{ ev.preventDefault(); ev.stopPropagation(); drop.classList.remove('over'); }}, false);
+  }});
+  drop.addEventListener('drop', ev => {{
+    const dt = ev.dataTransfer;
+    if (dt && dt.files && dt.files.length) uploadFiles(dt.files);
+  }}, false);
+  fileInput.addEventListener('change', ev => {{
+    if (fileInput.files && fileInput.files.length) uploadFiles(fileInput.files);
+  }});
+
+  function uploadFiles(files) {{
+    let done = 0;
+    const total = files.length;
+    status.innerText = '{web_uploading}... (0/' + total + ')';
+    Array.from(files).forEach(f => {{
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/upload/' + encodeURIComponent(f.name), true);
+      xhr.onload = () => {{
+        done++;
+        status.innerText = '{web_uploading}... (' + done + '/' + total + ')';
+        if (done === total) {{
+          status.innerText = '{web_uploaded}';
+          setTimeout(() => location.reload(), 800);
+        }}
+      }};
+      xhr.onerror = () => {{
+        status.innerText = '{web_failed}: ' + f.name;
+      }};
+      xhr.send(f);
+    }});
   }}
-  status.style.color = '#10b981';
-  status.textContent = '{web_done}';
-  setTimeout(() => location.reload(), 600);
-}}
-
-input.addEventListener('change', e => {{ upload(e.target.files); e.target.value = ''; }});
-['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {{
-  e.preventDefault(); e.stopPropagation(); drop.classList.add('over');
-}}));
-['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {{
-  e.preventDefault(); e.stopPropagation(); drop.classList.remove('over');
-}}));
-drop.addEventListener('drop', e => upload(e.dataTransfer.files));
 </script>
 </body>
 </html>

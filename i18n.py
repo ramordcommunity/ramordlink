@@ -28,12 +28,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "Ramord Link",
     },
     "app_subtitle": {
-        "tr": "Windows & Linux için Tek Tıkla İnternet, KVM ve Dosya Köprüsü",
-        "en": "One-Click Internet, KVM & File Bridge for Windows & Linux",
-        "de": "Ein-Klick-Internet-, KVM- und Datei-Bridge für Windows & Linux",
-        "es": "Puente de Internet, KVM y Archivos con un Clic para Windows y Linux",
-        "fr": "Passerelle Internet, KVM et Fichiers en un Clic pour Windows & Linux",
-        "it": "Bridge Internet, KVM e File con un Clic per Windows e Linux",
+        "tr": "Windows & Linux Ağ, KVM ve Dosya Köprüsü",
+        "en": "Windows & Linux Network, KVM & File Bridge",
+        "de": "Windows- & Linux-Netzwerk-, KVM- und Datei-Bridge",
+        "es": "Puente de Red, KVM y Archivos para Windows y Linux",
+        "fr": "Passerelle Réseau, KVM et Fichiers pour Windows & Linux",
+        "it": "Bridge di Rete, KVM e File per Windows e Linux",
     },
     "hero_hint_off": {
         "tr": "Windows PC'nin internete çıkması için aşağıdaki düğmeye basın.",
@@ -1139,12 +1139,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "Guida: Connessione alla Condivisione File da Windows",
     },
     "win_files_guide_step1_title": {
-        "tr": "1. Yöntem: Tarayıcıdan Tek Tıkla Bağlanma (En Kolay)",
-        "en": "Method 1: Connect via Browser (Easiest)",
-        "de": "Methode 1: Über den Browser verbinden (Am einfachsten)",
-        "es": "Método 1: Conectar por Navegador (Más Fácil)",
-        "fr": "Méthode 1 : Se connecter via Navigateur (Le plus simple)",
-        "it": "Metodo 1: Connetti via Browser (Più Semplice)",
+        "tr": "1. Yöntem: Tarayıcıdan Bağlanma (Web Arayüzü)",
+        "en": "Method 1: Connect via Browser (Web Interface)",
+        "de": "Methode 1: Über den Browser verbinden (Webinterface)",
+        "es": "Método 1: Conectar por Navegador (Interfaz Web)",
+        "fr": "Méthode 1 : Se connecter via Navigateur (Interface Web)",
+        "it": "Metodo 1: Connetti via Browser (Interfaccia Web)",
     },
     "win_files_guide_step1_desc": {
         "tr": "Windows PC'de Chrome, Edge vb. tarayıcınızı açın ve adres çubuğuna şunu yazın:\n"

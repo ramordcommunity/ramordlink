@@ -3,9 +3,9 @@
 <p align="center">
   <img src="assets/ramord-link.svg" width="128" height="128" alt="Ramord Link Logo">
   <br>
-  <b>One-Click Internet, KVM & File Sharing Bridge for Windows & Linux</b>
+  <b>Internet, KVM & File Sharing Bridge for Windows & Linux</b>
   <br>
-  <i>Windows ve Linux için Tek Tıkla İnternet, KVM ve Dosya Paylaşım Köprüsü</i>
+  <i>Windows ve Linux için İnternet, KVM ve Dosya Paylaşım Köprüsü</i>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 ### Key Capabilities
 
-1. **One-Click Internet Sharing (NAT Gateway):**
+1. **Internet Sharing (NAT Gateway):**
    - Automatically detects active Ethernet and Wi-Fi network interfaces.
    - Configures NetworkManager shared profile (`192.168.50.1/24` with built-in DHCP server `192.168.50.10 - 254`).
    - Automatically bridges incoming Wi-Fi internet to the connected computer over Ethernet with zero manual iptables configuration.
@@ -91,8 +91,8 @@ ramord-link
 
 ### Temel Özellikler
 
-1. **Tek Tıkla İnternet Paylaşımı (Ethernet ve Wi-Fi Hotspot):**
-   - Wi-Fi internetinizi tek tıkla Ethernet kablosu üzerinden diğer bilgisayarla paylaşın (`192.168.50.1/24` ağ geçidi ve otomatik yerel DHCP).
+1. **İnternet Paylaşımı (Ethernet ve Wi-Fi Hotspot):**
+   - Wi-Fi internetinizi Ethernet kablosu üzerinden diğer bilgisayarla paylaşın (`192.168.50.1/24` ağ geçidi ve otomatik yerel DHCP).
    - Kablosuz internet paylaşımını destekleyen adaptörler için dahili güvenli Wi-Fi Hotspot oluşturma imkanı.
 
 2. **Mouse, Klavye ve Otomatik Pano Paylaşımı (KVM / Deskflow):**

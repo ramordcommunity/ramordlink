@@ -8,7 +8,7 @@ version = "1.0.0"
 authors = [
   { name="Ramord Community", email="ramordhelp@gmail.com" },
 ]
-description = "One-click Internet, KVM and file sharing bridge for Windows & Linux"
+description = "Internet, KVM and file sharing bridge for Windows & Linux"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "GPL-3.0" }

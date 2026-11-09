@@ -41,7 +41,8 @@ PAGE_TEMPLATE = """<!doctype html>
   .wrap {{ max-width: 820px; margin: 0 auto; padding: 32px 20px 60px; }}
   .top-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid rgba(20, 200, 178, 0.2); padding-bottom: 16px; }}
   .brand {{ display: flex; align-items: center; gap: 12px; }}
-  .brand-logo {{ width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #14c8b2, #005a48); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #071013; font-size: 17px; box-shadow: 0 4px 15px rgba(20, 200, 178, 0.3); }}
+  .brand-logo {{ width: 42px; height: 42px; border-radius: 10px; background: rgba(7, 16, 19, 0.85); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(20, 200, 178, 0.25); border: 1px solid rgba(20, 200, 178, 0.3); overflow: hidden; }}
+  .brand-logo img {{ width: 100%; height: 100%; object-fit: contain; }}
   h1 {{ font-size: 20px; margin: 0; font-weight: 700; color: #f3f8f8; }}
   .lang-picker a {{ color: #7f9997; text-decoration: none; margin-left: 10px; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: all .2s ease; }}
   .lang-picker a:hover {{ color: #14c8b2; background: rgba(20, 200, 178, 0.1); }}
@@ -68,7 +69,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <div class="wrap">
   <div class="top-bar">
     <div class="brand">
-      <div class="brand-logo">RL</div>
+      <div class="brand-logo"><img src="/logo.svg" alt="Ramord Link Logo"></div>
       <h1>{web_title}</h1>
     </div>
     <div class="lang-picker">
@@ -238,6 +239,14 @@ class FileShareHandler(BaseHTTPRequestHandler):
         path = urllib.parse.unquote(parsed.path)
         if path in ("/", "/index.html"):
             self._listing()
+        elif path == "/logo.svg":
+            logo_path = Path(__file__).resolve().parent / "assets/ramord-link.svg"
+            if not logo_path.exists():
+                logo_path = Path.home() / ".local/share/icons/hicolor/scalable/apps/ramord-link.svg"
+            if logo_path.exists():
+                self._send(200, logo_path.read_bytes(), "image/svg+xml")
+            else:
+                self._send(404, b"Not Found")
         elif path.startswith("/files/"):
             self._download(path[len("/files/"):])
         else:

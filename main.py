@@ -110,6 +110,8 @@ SETTINGS_PATH = CONFIG_DIR / "settings.json"
 AUTOSTART_PATH = Path.home() / ".config/autostart/ramord-link.desktop"
 SMB_PATH = f"\\\\{SHARE_IP}\\{SMB_SHARE_NAME}"
 ICON_PATH = Path.home() / ".local/share/icons/hicolor/scalable/apps/ramord-link.svg"
+APP_DIR = Path(__file__).resolve().parent
+ASSET_ICON_PATH = APP_DIR / "assets/ramord-link.svg"
 
 # Palette: RamordCommunity Obsidian Luxury & Dark Turquoise Theme (Consistent with RamordCast)
 PRIMARY = "#14c8b2"      # Vibrant Dark Turquoise Accent
@@ -534,8 +536,18 @@ class MainWindow(QWidget):
         header = QHBoxLayout()
         header.setSpacing(12)
         logo = QLabel()
-        logo.setPixmap(make_feature_icon("wifi", "#071013", PRIMARY))
-        logo.setFixedSize(44, 44)
+        logo_pixmap = None
+        for p in (ICON_PATH, ASSET_ICON_PATH):
+            if p.exists():
+                pm = QPixmap(str(p))
+                if not pm.isNull():
+                    logo_pixmap = pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    break
+        if logo_pixmap is not None:
+            logo.setPixmap(logo_pixmap)
+        else:
+            logo.setPixmap(make_feature_icon("wifi", "#071013", PRIMARY))
+        logo.setFixedSize(48, 48)
 
         header_text = QVBoxLayout()
         header_text.setSpacing(1)

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ramord-link"
+version = "1.0.0"
+authors = [
+  { name="Ramord Community", email="ramordhelp@gmail.com" },
+]
+description = "One-click Internet, KVM and file sharing bridge for Windows & Linux"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Networking",
+]
+dependencies = [
+    "PySide6>=6.5.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ramordcommunity/ramordlink"
+"Support" = "mailto:ramordhelp@gmail.com"
+
+[project.scripts]
+ramord-link = "main:main"

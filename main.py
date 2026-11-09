@@ -102,16 +102,19 @@ AUTOSTART_PATH = Path.home() / ".config/autostart/ramord-link.desktop"
 SMB_PATH = f"\\\\{SHARE_IP}\\{SMB_SHARE_NAME}"
 ICON_PATH = Path.home() / ".local/share/icons/hicolor/scalable/apps/ramord-link.svg"
 
-# Palette
-BLUE = "#2563eb"
-GREEN = "#10b981"
+# Palette: RamordCommunity Obsidian Luxury & Dark Turquoise Theme (Consistent with RamordCast)
+PRIMARY = "#14c8b2"      # Vibrant Dark Turquoise Accent
+PRIMARY_HOVER = "#18e0c8"
+PRIMARY_DARK = "#005a48"
+BG_GRADIENT_START = "#102127"
+BG_GRADIENT_MID = "#0b171b"
+BG_GRADIENT_END = "#071013"
+CARD_BG = "rgba(11, 23, 27, 0.72)"
+CARD_BORDER = "rgba(20, 200, 178, 0.18)"
+TEXT = "#f3f8f8"
+DIM = "#7f9997"
 AMBER = "#f59e0b"
 RED = "#ef4444"
-BG = "#f4f6fb"
-CARD_BG = "#ffffff"
-CARD_BORDER = "#e2e8f0"
-TEXT = "#0f172a"
-DIM = "#64748b"
 
 
 def load_settings() -> dict:
@@ -139,7 +142,7 @@ def make_tray_icon(active: bool) -> QIcon:
     painter = QPainter(pm)
     painter.setRenderHint(QPainter.Antialiasing)
 
-    color = QColor(GREEN if active else DIM)
+    color = QColor(PRIMARY if active else DIM)
 
     # Wi-Fi broadcast ripples
     painter.setPen(Qt.NoPen)
@@ -206,16 +209,16 @@ def make_feature_icon(kind: str, color: str, background: str) -> QPixmap:
     return pixmap
 
 
-def add_shadow(widget: QWidget, blur: int = 28, y: int = 6, alpha: int = 20) -> None:
+def add_shadow(widget: QWidget, blur: int = 24, y: int = 6, alpha: int = 70) -> None:
     effect = QGraphicsDropShadowEffect(widget)
     effect.setBlurRadius(blur)
     effect.setOffset(0, y)
-    effect.setColor(QColor(15, 23, 42, alpha))
+    effect.setColor(QColor(0, 0, 0, alpha))
     widget.setGraphicsEffect(effect)
 
 
 class Switch(QAbstractButton):
-    """Smooth, modern toggle switch."""
+    """Smooth, modern toggle switch in turquoise style."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -256,115 +259,171 @@ class Switch(QAbstractButton):
         painter.setRenderHint(QPainter.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
         if not self.isEnabled():
-            track = QColor("#e2e8f0")
+            track = QColor("#1e293b")
         else:
-            track = QColor(GREEN if self.isChecked() else "#cbd5e1")
+            track = QColor(PRIMARY if self.isChecked() else "#1a2c33")
         painter.setPen(Qt.NoPen)
         painter.setBrush(track)
         painter.drawRoundedRect(QRectF(rect), rect.height() / 2, rect.height() / 2)
         diameter = rect.height() - 6
         x = rect.x() + 3 + (rect.width() - diameter - 6) * self._knob
-        painter.setBrush(QColor("#ffffff"))
+        painter.setBrush(QColor("#071013" if self.isChecked() else "#f3f8f8"))
         painter.drawEllipse(QRectF(x, rect.y() + 3, diameter, diameter))
         painter.end()
 
 
 STYLE = f"""
 QWidget {{
-    background: {BG};
+    background: transparent;
     color: {TEXT};
     font-family: "Noto Sans", "Segoe UI", sans-serif;
     font-size: 13px;
+}}
+QWidget#centralWidget, QWidget#content {{
+    background: qradialgradient(cx:0.5, cy:0.25, radius:0.85,
+        stop:0 {BG_GRADIENT_START}, stop:0.45 {BG_GRADIENT_MID}, stop:0.85 {BG_GRADIENT_END});
+    color: {TEXT};
 }}
 QLabel, QCheckBox {{ background: transparent; }}
 QFrame#card {{
     background: {CARD_BG};
     border: 1px solid {CARD_BORDER};
-    border-radius: 18px;
+    border-radius: 16px;
 }}
 QFrame#hero {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #eef4ff, stop:1 #f1fbf6);
-    border: 1px solid #dbe7fb;
-    border-radius: 20px;
+        stop:0 rgba(20, 200, 178, 0.16), stop:1 rgba(0, 90, 72, 0.22));
+    border: 1px solid rgba(20, 200, 178, 0.32);
+    border-radius: 18px;
 }}
 QLabel#title {{ font-size: 21px; font-weight: 800; color: {TEXT}; }}
 QLabel#subtitle {{ color: {DIM}; font-size: 12px; }}
 QLabel#state {{ font-size: 24px; font-weight: 800; }}
-QLabel#sectionTitle {{ font-size: 16px; font-weight: 800; }}
+QLabel#sectionTitle {{ font-size: 16px; font-weight: 800; color: {TEXT}; }}
 QLabel#key {{ color: {DIM}; font-size: 12px; }}
-QLabel#value {{ font-weight: 600; }}
+QLabel#value {{ font-weight: 600; color: {TEXT}; }}
 QLabel#mono {{
-    color: #334155;
+    color: {PRIMARY_HOVER};
     font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace;
     font-size: 12px;
 }}
 QPushButton#toggle {{
-    border: none; border-radius: 14px; padding: 16px;
-    font-size: 16px; font-weight: 800; color: #ffffff;
-    background: {BLUE};
+    border: none; border-radius: 14px; padding: 15px;
+    font-size: 15px; font-weight: 800; color: #071013;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 {PRIMARY_HOVER}, stop:1 {PRIMARY});
 }}
-QPushButton#toggle:hover {{ background: #1d4ed8; }}
-QPushButton#toggle:pressed {{ background: #1e40af; }}
-QPushButton#toggle[off="true"] {{ background: #e2e8f0; color: #334155; }}
-QPushButton#toggle[off="true"]:hover {{ background: #d6deea; }}
+QPushButton#toggle:hover {{
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #22fae0, stop:1 {PRIMARY_HOVER});
+}}
+QPushButton#toggle:pressed {{
+    background: {PRIMARY_DARK};
+    color: {TEXT};
+}}
+QPushButton#toggle[off="true"] {{
+    background: rgba(255, 255, 255, 0.08);
+    color: {TEXT};
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}}
+QPushButton#toggle[off="true"]:hover {{
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(20, 200, 178, 0.4);
+}}
 QPushButton#ghost {{
-    background: {CARD_BG}; border: 1px solid {CARD_BORDER};
-    border-radius: 10px; padding: 9px 14px; color: {TEXT}; font-weight: 600;
+    background: rgba(11, 23, 27, 0.8);
+    border: 1px solid {CARD_BORDER};
+    border-radius: 10px; padding: 8px 14px; color: {TEXT}; font-weight: 600;
 }}
-QPushButton#ghost:hover {{ background: #f8fafc; border-color: #cbd5e1; }}
+QPushButton#ghost:hover {{
+    background: rgba(20, 200, 178, 0.15);
+    border-color: {PRIMARY};
+    color: {PRIMARY_HOVER};
+}}
 QPushButton#soft {{
-    background: #f2f6fc; border: 1px solid #e2e8f2;
-    border-radius: 10px; padding: 10px 14px; color: #1e293b; font-weight: 600;
+    background: rgba(20, 200, 178, 0.12);
+    border: 1px solid rgba(20, 200, 178, 0.25);
+    border-radius: 10px; padding: 9px 14px; color: {PRIMARY_HOVER}; font-weight: 600;
 }}
-QPushButton#soft:hover {{ background: #e8eff9; border-color: #cbd9ee; }}
+QPushButton#soft:hover {{
+    background: rgba(20, 200, 178, 0.22);
+    border-color: {PRIMARY};
+}}
 QPushButton#help {{
-    background: {CARD_BG}; border: 1px solid {CARD_BORDER};
+    background: rgba(11, 23, 27, 0.85);
+    border: 1px solid {CARD_BORDER};
     border-radius: 12px; padding: 8px 13px; color: {DIM}; font-weight: 600;
 }}
-QPushButton#help:hover {{ color: {BLUE}; border-color: #bfdbfe; background: #f5f9ff; }}
+QPushButton#help:hover {{
+    color: {PRIMARY_HOVER};
+    border-color: {PRIMARY};
+    background: rgba(20, 200, 178, 0.12);
+}}
 QPushButton#edge {{
-    background: #f8fafc; border: 1px solid {CARD_BORDER}; border-radius: 9px;
+    background: rgba(7, 16, 19, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9px;
     padding: 8px 16px; color: {DIM}; font-weight: 700;
 }}
-QPushButton#edge:hover {{ background: #eef2f8; }}
+QPushButton#edge:hover {{
+    background: rgba(20, 200, 178, 0.1);
+    color: {TEXT};
+}}
 QPushButton#edge[selected="true"] {{
-    background: #e8f0ff; border-color: {BLUE}; color: {BLUE};
+    background: rgba(20, 200, 178, 0.2);
+    border-color: {PRIMARY};
+    color: {PRIMARY};
 }}
 QPushButton#disclosure {{
-    background: transparent; border: none; color: {DIM};
+    background: transparent; border: none; color: {PRIMARY};
     font-weight: 700; font-size: 12px; text-align: left; padding: 4px 2px;
 }}
-QPushButton#disclosure:hover {{ color: {TEXT}; }}
+QPushButton#disclosure:hover {{ color: {PRIMARY_HOVER}; }}
 QComboBox {{
-    background: {CARD_BG}; border: 1px solid {CARD_BORDER};
-    border-radius: 8px; padding: 4px 10px; min-width: 90px;
+    background: #0b171b;
+    border: 1px solid rgba(20, 200, 178, 0.3);
+    border-radius: 8px; padding: 5px 12px; min-width: 95px;
     font-weight: 600; color: {TEXT};
 }}
-QComboBox:hover {{ border-color: #cbd5e1; }}
+QComboBox:hover {{ border-color: {PRIMARY}; }}
 QComboBox::drop-down {{ border: none; width: 18px; }}
+QComboBox QAbstractItemView {{
+    background: #0b171b;
+    border: 1px solid rgba(20, 200, 178, 0.3);
+    border-radius: 8px;
+    color: {TEXT};
+    selection-background-color: rgba(20, 200, 178, 0.25);
+    selection-color: {PRIMARY_HOVER};
+    padding: 4px;
+}}
 QCheckBox {{ color: {DIM}; spacing: 8px; }}
 QCheckBox::indicator {{
     width: 16px; height: 16px; border-radius: 5px;
-    border: 1px solid #cbd5e1; background: #ffffff;
+    border: 1px solid rgba(20, 200, 178, 0.3); background: #0b171b;
 }}
-QCheckBox::indicator:checked {{ background: {GREEN}; border-color: {GREEN}; }}
-QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
+QCheckBox::indicator:checked {{
+    background: {PRIMARY};
+    border-color: {PRIMARY};
+}}
+QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
 QScrollBar::handle:vertical {{
-    background: #cfd8e6; min-height: 32px; border-radius: 5px;
+    background: rgba(20, 200, 178, 0.25); min-height: 28px; border-radius: 4px;
 }}
-QScrollBar::handle:vertical:hover {{ background: #b6c2d6; }}
+QScrollBar::handle:vertical:hover {{ background: {PRIMARY}; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
     background: transparent;
 }}
 QMenu {{
-    background: {CARD_BG}; border: 1px solid {CARD_BORDER};
+    background: #0b171b;
+    border: 1px solid rgba(20, 200, 178, 0.3);
     border-radius: 10px; padding: 6px;
+    color: {TEXT};
 }}
 QMenu::item {{ padding: 7px 18px; border-radius: 6px; }}
-QMenu::item:selected {{ background: #eef4ff; }}
+QMenu::item:selected {{ background: rgba(20, 200, 178, 0.2); color: {PRIMARY_HOVER}; }}
 """
+
 
 
 class MainWindow(QWidget):
@@ -454,7 +513,7 @@ class MainWindow(QWidget):
         header = QHBoxLayout()
         header.setSpacing(12)
         logo = QLabel()
-        logo.setPixmap(make_feature_icon("wifi", "#ffffff", BLUE))
+        logo.setPixmap(make_feature_icon("wifi", "#071013", PRIMARY))
         logo.setFixedSize(44, 44)
 
         header_text = QVBoxLayout()
@@ -537,7 +596,7 @@ class MainWindow(QWidget):
         mouse_top = QHBoxLayout()
         mouse_top.setSpacing(12)
         mouse_icon = QLabel()
-        mouse_icon.setPixmap(make_feature_icon("mouse", BLUE, "#e8f0ff"))
+        mouse_icon.setPixmap(make_feature_icon("mouse", PRIMARY, "rgba(20, 200, 178, 0.15)"))
         mouse_icon.setFixedSize(44, 44)
         mouse_text = QVBoxLayout()
         mouse_text.setSpacing(1)
@@ -612,7 +671,7 @@ class MainWindow(QWidget):
         files_top = QHBoxLayout()
         files_top.setSpacing(12)
         files_icon = QLabel()
-        files_icon.setPixmap(make_feature_icon("folder", GREEN, "#e7f8f0"))
+        files_icon.setPixmap(make_feature_icon("folder", PRIMARY, "rgba(20, 200, 178, 0.15)"))
         files_icon.setFixedSize(44, 44)
         files_text = QVBoxLayout()
         files_text.setSpacing(1)
@@ -893,7 +952,7 @@ class MainWindow(QWidget):
 
         self.state_label.setText(t("state_on") if active else t("state_off"))
         self.state_label.setStyleSheet(
-            f"color: {GREEN if active else '#334155'};"
+            f"color: {PRIMARY if active else DIM};"
         )
         self.hero_hint.setText(t("hero_hint_on") if active else t("hero_hint_off"))
 
@@ -905,7 +964,7 @@ class MainWindow(QWidget):
         if has_link:
             spd = link_speed(self.active_eth)
             self.link_label.setText(f"{t('cable_connected')} · {spd}")
-            self.link_label.setStyleSheet(f"color: {GREEN}; font-weight: 600;")
+            self.link_label.setStyleSheet(f"color: {PRIMARY}; font-weight: 600;")
         else:
             self.link_label.setText(t("cable_disconnected"))
             self.link_label.setStyleSheet(f"color: {AMBER}; font-weight: 600;")
@@ -929,7 +988,7 @@ class MainWindow(QWidget):
         if not is_deskflow_installed():
             mouse_text, mouse_color = t("mouse_not_installed"), RED
         elif connected:
-            mouse_text, mouse_color = t("mouse_connected"), GREEN
+            mouse_text, mouse_color = t("mouse_connected"), PRIMARY
         elif running:
             mouse_text, mouse_color = t("mouse_waiting"), AMBER
         elif self.mouse_wanted:
@@ -972,7 +1031,7 @@ class MainWindow(QWidget):
         self.files_switch.set_state(files_on or self.files_wanted)
         self.wifi_switch.set_state(self.wifi_enabled)
         if files_on:
-            files_text, files_color = t("files_active"), GREEN
+            files_text, files_color = t("files_active"), PRIMARY
         elif self.files_wanted:
             files_text, files_color = t("files_waiting_sharing"), AMBER
         else:

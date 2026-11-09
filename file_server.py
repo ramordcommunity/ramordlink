@@ -37,29 +37,31 @@ PAGE_TEMPLATE = """<!doctype html>
 <title>{web_title}</title>
 <style>
   * {{ box-sizing: border-box; }}
-  body {{ margin: 0; background: #0c1017; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+  body {{ margin: 0; background: radial-gradient(circle at 50% 25%, #102127 0%, #0b171b 45%, #071013 85%); color: #f3f8f8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }}
   .wrap {{ max-width: 820px; margin: 0 auto; padding: 32px 20px 60px; }}
-  .top-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #21262d; padding-bottom: 16px; }}
+  .top-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid rgba(20, 200, 178, 0.2); padding-bottom: 16px; }}
   .brand {{ display: flex; align-items: center; gap: 12px; }}
-  .brand-logo {{ width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #06b6d4); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; font-size: 18px; }}
-  h1 {{ font-size: 20px; margin: 0; font-weight: 600; }}
-  .lang-picker a {{ color: #8b949e; text-decoration: none; margin-left: 10px; font-size: 13px; font-weight: 500; }}
-  .lang-picker a.active {{ color: #10b981; font-weight: 700; }}
-  .sub {{ color: #8b949e; font-size: 13px; margin: 0 0 20px; word-break: break-all; }}
-  .drop {{ border: 2px dashed #30363d; border-radius: 16px; padding: 28px; text-align: center; color: #8b949e; background: #161b22; transition: all .2s ease; cursor: pointer; }}
-  .drop.over {{ border-color: #10b981; background: #0d281e; color: #e6edf3; }}
+  .brand-logo {{ width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #14c8b2, #005a48); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #071013; font-size: 17px; box-shadow: 0 4px 15px rgba(20, 200, 178, 0.3); }}
+  h1 {{ font-size: 20px; margin: 0; font-weight: 700; color: #f3f8f8; }}
+  .lang-picker a {{ color: #7f9997; text-decoration: none; margin-left: 10px; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: all .2s ease; }}
+  .lang-picker a:hover {{ color: #14c8b2; background: rgba(20, 200, 178, 0.1); }}
+  .lang-picker a.active {{ color: #071013; background: #14c8b2; font-weight: 700; }}
+  .sub {{ color: #7f9997; font-size: 13px; margin: 0 0 20px; word-break: break-all; }}
+  .drop {{ border: 2px dashed rgba(20, 200, 178, 0.35); border-radius: 16px; padding: 32px; text-align: center; color: #7f9997; background: rgba(11, 23, 27, 0.7); backdrop-filter: blur(10px); transition: all .2s ease; cursor: pointer; }}
+  .drop:hover, .drop.over {{ border-color: #14c8b2; background: rgba(20, 200, 178, 0.08); color: #f3f8f8; box-shadow: 0 6px 25px rgba(20, 200, 178, 0.15); }}
   .drop p {{ margin: 6px 0; }}
-  .drop strong {{ color: #10b981; font-size: 15px; }}
+  .drop strong {{ color: #14c8b2; font-size: 16px; }}
   input[type=file] {{ display: none; }}
-  .status {{ color: #10b981; min-height: 20px; font-size: 13px; margin-top: 10px; font-weight: 500; }}
-  table {{ width: 100%; border-collapse: collapse; margin-top: 28px; background: #161b22; border-radius: 12px; overflow: hidden; }}
-  th {{ text-align: left; color: #8b949e; font-size: 12px; font-weight: 600; padding: 12px 14px; border-bottom: 1px solid #21262d; background: #0d1117; }}
-  td {{ padding: 13px 14px; border-bottom: 1px solid #21262d; font-size: 14px; }}
-  td:nth-child(2), td:nth-child(3) {{ color: #8b949e; white-space: nowrap; font-size: 13px; }}
-  a.file-link {{ color: #58a6ff; text-decoration: none; font-weight: 500; }}
-  a.file-link:hover {{ text-decoration: underline; color: #79c0ff; }}
-  .empty {{ text-align: center; color: #6e7681; padding: 32px; font-size: 14px; }}
-  .footer {{ margin-top: 36px; text-align: center; color: #484f58; font-size: 12px; }}
+  .status {{ color: #14c8b2; min-height: 20px; font-size: 13px; margin-top: 10px; font-weight: 600; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 28px; background: rgba(11, 23, 27, 0.75); border: 1px solid rgba(20, 200, 178, 0.16); border-radius: 14px; overflow: hidden; }}
+  th {{ text-align: left; color: #7f9997; font-size: 12px; font-weight: 700; padding: 13px 16px; border-bottom: 1px solid rgba(20, 200, 178, 0.18); background: rgba(7, 16, 19, 0.85); }}
+  td {{ padding: 13px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; }}
+  td:nth-child(2), td:nth-child(3) {{ color: #7f9997; white-space: nowrap; font-size: 13px; }}
+  a.file-link {{ color: #18e0c8; text-decoration: none; font-weight: 600; }}
+  a.file-link:hover {{ text-decoration: underline; color: #14c8b2; }}
+  .empty {{ text-align: center; color: #7f9997; padding: 36px; font-size: 14px; }}
+  .footer {{ margin-top: 40px; text-align: center; color: #7f9997; font-size: 12px; }}
+  .footer a {{ color: #14c8b2; text-decoration: none; }}
 </style>
 </head>
 <body>

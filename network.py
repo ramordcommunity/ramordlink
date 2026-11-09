@@ -156,6 +156,14 @@ def get_connected_clients(iface: str) -> list[tuple[str, str]]:
     return found
 
 
+link_speed = get_link_speed
+iface_address = get_iface_ip
+sharing_active = is_sharing_active
+wifi_info = lambda wifi_iface=None: get_wifi_info(wifi_iface or get_default_wifi())
+clients = get_connected_clients
+
+
+
 def connection_profile_exists() -> bool:
     out = run_cmd(["nmcli", "-t", "-f", "NAME", "connection", "show"]).stdout
     return CONNECTION_NAME in out.splitlines()

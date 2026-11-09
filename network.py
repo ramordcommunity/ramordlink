@@ -273,3 +273,12 @@ def disable_hotspot() -> tuple[bool, str]:
         return False, down_res.stderr or down_res.stdout
     return True, ""
 
+
+def is_samba_running() -> bool:
+    res = run_cmd(["systemctl", "is-active", "smb"])
+    if res.stdout.strip() == "active":
+        return True
+    res2 = run_cmd(["systemctl", "is-active", "smbd"])
+    return res2.stdout.strip() == "active"
+
+

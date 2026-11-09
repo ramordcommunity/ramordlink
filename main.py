@@ -146,6 +146,15 @@ def save_settings(data: dict) -> None:
         pass
 
 
+def get_app_icon() -> QIcon:
+    for p in (ICON_PATH, ASSET_ICON_PATH):
+        if p.exists():
+            icon = QIcon(str(p))
+            if not icon.isNull():
+                return icon
+    return QIcon.fromTheme("ramord-link", make_tray_icon(True))
+
+
 def make_tray_icon(active: bool) -> QIcon:
     size = 64
     pm = QPixmap(size, size)
@@ -496,7 +505,7 @@ class MainWindow(QWidget):
         self._mouse_last_attempt = 0.0
 
         self.setWindowTitle(t("app_title"))
-        self.setWindowIcon(make_tray_icon(True))
+        self.setWindowIcon(get_app_icon())
         self.setMinimumSize(700, 720)
         self.resize(760, 940)
 
@@ -1188,7 +1197,7 @@ class MainWindow(QWidget):
             self.tray_mouse.setText(t("tray_mouse_disable") if running else t("tray_mouse_enable"))
             self.tray_files.setText(t("tray_files_disable") if files_on else t("tray_files_enable"))
 
-        self.setWindowIcon(make_tray_icon(active))
+        self.setWindowIcon(get_app_icon())
 
     def toggle_details(self) -> None:
         visible = not self.details.isVisible()
@@ -1552,6 +1561,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("ramord-link")
     app.setDesktopFileName("ramord-link")
+    app.setWindowIcon(get_app_icon())
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(STYLE)
 

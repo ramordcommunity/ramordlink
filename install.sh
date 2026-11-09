@@ -26,10 +26,16 @@ chmod +x "${TARGET_BIN}"
 # 3. Maintain backwards compatibility symlink for internet-paylasim
 ln -sf "${TARGET_BIN}" "${LEGACY_BIN}"
 
-# 4. Install Application Icon
+# 4. Install Application Icon (Scalable SVG + Standard PNG resolutions)
 cp -f "${SCRIPT_DIR}/assets/ramord-link.svg" "${ICON_DIR}/ramord-link.svg"
-# Also provide legacy icon name if referenced anywhere
 cp -f "${SCRIPT_DIR}/assets/ramord-link.svg" "${ICON_DIR}/internet-paylasim.svg"
+
+for res in 16 24 32 48 64 128 256 512; do
+    res_dir="${HOME}/.local/share/icons/hicolor/${res}x${res}/apps"
+    mkdir -p "${res_dir}"
+    rsvg-convert -w "${res}" -h "${res}" "${SCRIPT_DIR}/assets/ramord-link.svg" -o "${res_dir}/ramord-link.png" 2>/dev/null || true
+    cp -f "${res_dir}/ramord-link.png" "${res_dir}/internet-paylasim.png" 2>/dev/null || true
+done
 
 # 5. Install Desktop File
 cp -f "${SCRIPT_DIR}/assets/ramord-link.desktop" "${DESKTOP_DIR}/ramord-link.desktop"
@@ -41,6 +47,10 @@ fi
 
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
 fi
 
 echo "==> Ramord Link installed successfully!"

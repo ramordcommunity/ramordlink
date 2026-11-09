@@ -994,7 +994,7 @@ class MainWindow(QWidget):
 
     def _tray_clicked(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
-            self.show_window()
+            self.toggle_window()
 
     def _on_language_changed(self, index: int) -> None:
         lang_code = self.lang_combo.itemData(index)
@@ -1528,6 +1528,17 @@ class MainWindow(QWidget):
 
     # ---------- Window Management ----------
 
+    def toggle_window(self) -> None:
+        if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
+            self.hide()
+        elif self.isVisible() and not self.isMinimized():
+            self.raise_()
+            self.activateWindow()
+        else:
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+
     def show_window(self) -> None:
         self.showNormal()
         self.raise_()
@@ -1563,12 +1574,12 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(STYLE)
 
-    # Single-instance enforcement
+    # Single-instance enforcement & toggle listener
     server_key = "ramord-link"
     probe = QLocalSocket()
     probe.connectToServer(server_key)
     if probe.waitForConnected(250):
-        probe.write(b"show")
+        probe.write(b"toggle")
         probe.flush()
         probe.waitForBytesWritten(250)
         probe.disconnectFromServer()
@@ -1579,7 +1590,19 @@ def main() -> int:
     server.listen(server_key)
 
     window = MainWindow()
-    server.newConnection.connect(window.show_window)
+
+    def handle_client() -> None:
+        client = server.nextPendingConnection()
+        if client:
+            client.waitForReadyRead(150)
+            msg = bytes(client.readAll()).decode("utf-8", errors="ignore").strip()
+            if msg == "toggle":
+                window.toggle_window()
+            else:
+                window.show_window()
+            client.disconnectFromServer()
+
+    server.newConnection.connect(handle_client)
     window.show()
 
     signal.signal(signal.SIGINT, lambda *_: app.quit())

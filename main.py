@@ -1,13 +1,16 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Ramord Link - Desktop Application GUI
 A modern, multilingual (6 languages: tr, en, de, es, fr, it) bridge application
 providing one-click internet sharing, KVM mouse/keyboard sharing, and local web file transfer.
+Built with GTK4 & Libadwaita (Apple-like modern unified window and header bar).
 
 Official Contact: ramordhelp@gmail.com
 """
 
 from __future__ import annotations
+import html
 import json
 import os
 import signal
@@ -15,49 +18,14 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
+import urllib.parse
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
-from PySide6.QtCore import (
-    QEasingCurve,
-    QProcess,
-    QPropertyAnimation,
-    QRectF,
-    Qt,
-    QTimer,
-    QUrl,
-    Property,
-)
-from PySide6.QtGui import (
-    QAction,
-    QColor,
-    QDesktopServices,
-    QIcon,
-    QPainter,
-    QPainterPath,
-    QPen,
-    QPixmap,
-)
-from PySide6.QtNetwork import QLocalServer, QLocalSocket
-from PySide6.QtWidgets import (
-    QAbstractButton,
-    QApplication,
-    QCheckBox,
-    QComboBox,
-    QFileDialog,
-    QFrame,
-    QGraphicsDropShadowEffect,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMenu,
-    QMessageBox,
-    QPushButton,
-    QScrollArea,
-    QSystemTrayIcon,
-    QVBoxLayout,
-    QWidget,
-)
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 
 from i18n import (
     LANGUAGES,
@@ -108,265 +76,10 @@ from file_server import (
 # Configuration & paths
 CONFIG_DIR = Path.home() / ".config/ramord-link"
 SETTINGS_PATH = CONFIG_DIR / "settings.json"
-AUTOSTART_PATH = Path.home() / ".config/autostart/ramord-link.desktop"
 SMB_PATH = f"\\\\{SHARE_IP}\\{SMB_SHARE_NAME}"
-ICON_PATH = Path.home() / ".local/share/icons/hicolor/scalable/apps/ramord-link.svg"
 APP_DIR = Path(__file__).resolve().parent
-ASSET_ICON_PATH = APP_DIR / "assets/ramord-link.svg"
-
-# Theme Palettes: Solid Day & Night Modes (User-Specified)
-THEMES = {
-    "day": {
-        "bg": "#F4F1EA",
-        "card": "#EFECE6",
-        "card_border": "rgba(26, 51, 40, 0.15)",
-        "text": "#2B2A27",
-        "dim": "#6B6862",
-        "accent": "#1A3328",
-        "accent_hover": "#284e3e",
-        "accent_text": "#F4F1EA",
-        "input_bg": "#E6E2DA",
-        "input_border": "rgba(26, 51, 40, 0.25)",
-        "scroll_handle": "rgba(26, 51, 40, 0.25)",
-        "menu_bg": "#EFECE6",
-        "menu_sel": "rgba(26, 51, 40, 0.15)",
-        "hero_bg": "#EAE5DC",
-        "hero_border": "rgba(26, 51, 40, 0.22)",
-        "header_bg": "#EAE5DC",
-        "switch_knob_on": "#F4F1EA",
-        "switch_knob_off": "#2B2A27",
-        "switch_off_track": "#D8D3C8",
-    },
-    "night": {
-        "bg": "#080C0A",
-        "card": "#101613",
-        "card_border": "rgba(88, 158, 123, 0.20)",
-        "text": "#E8E4DA",
-        "dim": "#8A948E",
-        "accent": "#589E7B",
-        "accent_hover": "#6db893",
-        "accent_text": "#080C0A",
-        "input_bg": "#101613",
-        "input_border": "rgba(88, 158, 123, 0.30)",
-        "scroll_handle": "rgba(88, 158, 123, 0.25)",
-        "menu_bg": "#101613",
-        "menu_sel": "rgba(88, 158, 123, 0.20)",
-        "hero_bg": "#141d18",
-        "hero_border": "rgba(88, 158, 123, 0.28)",
-        "header_bg": "#0d1310",
-        "switch_knob_on": "#080C0A",
-        "switch_knob_off": "#E8E4DA",
-        "switch_off_track": "#1a2420",
-    }
-}
-
-ACTIVE_THEME_KEY = "night"
-PRIMARY = THEMES["night"]["accent"]
-PRIMARY_HOVER = THEMES["night"]["accent_hover"]
-PRIMARY_DARK = THEMES["night"]["accent"]
-TEXT = THEMES["night"]["text"]
-DIM = THEMES["night"]["dim"]
-AMBER = "#f59e0b"
-RED = "#ef4444"
-
-def detect_system_theme() -> str:
-    try:
-        res = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
-                             capture_output=True, text=True, timeout=1)
-        out = res.stdout.lower()
-        if "dark" in out:
-            return "night"
-        if "light" in out or "default" in out:
-            return "day"
-    except Exception:
-        pass
-    return "night"
-
-def build_qss(theme_name: str) -> str:
-    t_cfg = THEMES.get(theme_name, THEMES["night"])
-    bg = t_cfg["bg"]
-    card = t_cfg["card"]
-    card_border = t_cfg["card_border"]
-    text = t_cfg["text"]
-    dim = t_cfg["dim"]
-    accent = t_cfg["accent"]
-    accent_hover = t_cfg["accent_hover"]
-    accent_text = t_cfg["accent_text"]
-    input_bg = t_cfg["input_bg"]
-    input_border = t_cfg["input_border"]
-    scroll_handle = t_cfg["scroll_handle"]
-    menu_bg = t_cfg["menu_bg"]
-    menu_sel = t_cfg["menu_sel"]
-    hero_bg = t_cfg["hero_bg"]
-    hero_border = t_cfg["hero_border"]
-    header_bg = t_cfg.get("header_bg", card)
-
-    return f"""
-QWidget {{
-    background: transparent;
-    color: {text};
-    font-family: "Noto Sans", "Segoe UI", sans-serif;
-    font-size: 13px;
-}}
-QWidget#centralWidget, QWidget#content {{
-    background: {bg};
-    color: {text};
-}}
-QLabel, QCheckBox {{ background: transparent; }}
-QFrame#headerBar {{
-    background: {header_bg};
-    border-bottom: 1px solid {card_border};
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-}}
-QFrame#card {{
-    background: {card};
-    border: 1px solid {card_border};
-    border-radius: 16px;
-}}
-QFrame#hero {{
-    background: {hero_bg};
-    border: 1px solid {hero_border};
-    border-radius: 18px;
-}}
-QLabel#title {{ font-size: 21px; font-weight: 800; color: {text}; }}
-QLabel#subtitle {{ color: {dim}; font-size: 12px; }}
-QLabel#state {{ font-size: 24px; font-weight: 800; }}
-QLabel#sectionTitle {{ font-size: 16px; font-weight: 800; color: {text}; }}
-QLabel#key {{ color: {dim}; font-size: 12px; }}
-QLabel#value {{ font-weight: 600; color: {text}; }}
-QLabel#mono {{
-    color: {accent};
-    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace;
-    font-size: 12px;
-}}
-QPushButton#toggle {{
-    border: none; border-radius: 14px; padding: 15px;
-    font-size: 15px; font-weight: 800; color: {accent_text};
-    background: {accent};
-}}
-QPushButton#toggle:hover {{
-    background: {accent_hover};
-}}
-QPushButton#toggle:pressed {{
-    background: {accent};
-    color: {accent_text};
-}}
-QPushButton#toggle[off="true"] {{
-    background: {card};
-    color: {dim};
-    border: 1px solid {card_border};
-}}
-QPushButton#toggle[off="true"]:hover {{
-    background: {hero_bg};
-    border-color: {accent};
-    color: {text};
-}}
-QPushButton#ghost {{
-    background: {card};
-    border: 1px solid {card_border};
-    border-radius: 10px; padding: 8px 14px; color: {text}; font-weight: 600;
-}}
-QPushButton#ghost:hover {{
-    background: {hero_bg};
-    border-color: {accent};
-    color: {accent};
-}}
-QPushButton#soft {{
-    background: {card};
-    border: 1px solid {card_border};
-    border-radius: 10px; padding: 9px 14px; color: {accent}; font-weight: 600;
-}}
-QPushButton#soft:hover {{
-    background: {hero_bg};
-    border-color: {accent};
-}}
-QPushButton#help {{
-    background: {card};
-    border: 1px solid {card_border};
-    border-radius: 12px; padding: 8px 13px; color: {dim}; font-weight: 600;
-}}
-QPushButton#help:hover {{
-    color: {accent};
-    border-color: {accent};
-    background: {hero_bg};
-}}
-QPushButton#edge {{
-    background: {card};
-    border: 1px solid {card_border};
-    border-radius: 9px;
-    padding: 8px 16px; color: {dim}; font-weight: 700;
-}}
-QPushButton#edge:hover {{
-    background: {hero_bg};
-    color: {text};
-}}
-QPushButton#edge[selected="true"] {{
-    background: {accent};
-    border-color: {accent};
-    color: {accent_text};
-}}
-QPushButton#disclosure {{
-    background: transparent; border: none; color: {accent};
-    font-weight: 700; font-size: 12px; text-align: left; padding: 4px 2px;
-}}
-QPushButton#disclosure:hover {{ color: {accent_hover}; }}
-QComboBox {{
-    background: {card};
-    border: 1px solid {input_border};
-    border-radius: 8px; padding: 5px 12px; min-width: 95px;
-    font-weight: 600; color: {text};
-}}
-QComboBox:hover {{ border-color: {accent}; }}
-QComboBox::drop-down {{ border: none; width: 18px; }}
-QComboBox QAbstractItemView {{
-    background: {menu_bg};
-    border: 1px solid {input_border};
-    border-radius: 8px;
-    color: {text};
-    selection-background-color: {menu_sel};
-    selection-color: {accent};
-    padding: 4px;
-}}
-QCheckBox {{ color: {dim}; spacing: 8px; }}
-QCheckBox::indicator {{
-    width: 16px; height: 16px; border-radius: 5px;
-    border: 1px solid {input_border}; background: {card};
-}}
-QCheckBox::indicator:checked {{
-    background: {accent};
-    border-color: {accent};
-}}
-QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
-QScrollBar::handle:vertical {{
-    background: {scroll_handle}; min-height: 28px; border-radius: 4px;
-}}
-QScrollBar::handle:vertical:hover {{ background: {accent}; }}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-    background: transparent;
-}}
-QLineEdit {{
-    background: {input_bg};
-    border: 1px solid {input_border};
-    border-radius: 8px;
-    padding: 6px 12px;
-    color: {text};
-    font-size: 13px;
-}}
-QLineEdit:focus {{
-    border-color: {accent};
-}}
-QMenu {{
-    background: {menu_bg};
-    border: 1px solid {card_border};
-    border-radius: 10px; padding: 6px;
-    color: {text};
-}}
-QMenu::item {{ padding: 7px 18px; border-radius: 6px; }}
-QMenu::item:selected {{ background: {menu_sel}; color: {accent}; }}
-"""
-
+ICON_PATH = APP_DIR / "assets/ramord-link.svg"
+OFFICIAL_EMAIL = "ramordhelp@gmail.com"
 
 
 def load_settings() -> dict:
@@ -387,175 +100,16 @@ def save_settings(data: dict) -> None:
         pass
 
 
-def get_app_icon() -> QIcon:
-    for p in (ICON_PATH, ASSET_ICON_PATH):
-        if p.exists():
-            icon = QIcon(str(p))
-            if not icon.isNull():
-                return icon
-    return QIcon.fromTheme("ramord-link", make_tray_icon(True))
+class RamordLinkWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Ramord Link")
+        self.set_default_size(780, 860)
+        self.set_icon_name("ramord-link")
 
-
-def make_tray_icon(active: bool) -> QIcon:
-    size = 64
-    pm = QPixmap(size, size)
-    pm.fill(Qt.transparent)
-    painter = QPainter(pm)
-    painter.setRenderHint(QPainter.Antialiasing)
-    painter.setRenderHint(QPainter.SmoothPixmapTransform)
-
-    # Base: Official Application Icon (Deer + Cyber Link)
-    base_pix = None
-    for p in (ICON_PATH, ASSET_ICON_PATH):
-        if p.exists():
-            candidate = QPixmap(str(p))
-            if not candidate.isNull():
-                base_pix = candidate.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                break
-
-    if base_pix is not None:
-        painter.drawPixmap(0, 0, base_pix)
-    else:
-        painter.setBrush(QColor(PRIMARY if active else DIM))
-        painter.drawRoundedRect(4, 4, 56, 56, 14, 14)
-
-    # Status Badge indicator at bottom-right corner (Active turquoise, Inactive dim)
-    badge_color = QColor(PRIMARY if active else DIM)
-    painter.setBrush(badge_color)
-    painter.setPen(QPen(QColor("#071013"), 3))
-    painter.drawEllipse(44, 44, 16, 16)
-    painter.end()
-    return QIcon(pm)
-
-
-def make_feature_icon(kind: str, color: str, background: str) -> QPixmap:
-    size = 44
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)
-    painter.setPen(Qt.NoPen)
-    painter.setBrush(QColor(background))
-    painter.drawRoundedRect(QRectF(0, 0, size, size), 13, 13)
-
-    pen = QPen(QColor(color), 2.6)
-    pen.setCapStyle(Qt.RoundCap)
-    pen.setJoinStyle(Qt.RoundJoin)
-    painter.setPen(pen)
-    painter.setBrush(Qt.NoBrush)
-
-    if kind == "mouse":
-        painter.drawRoundedRect(QRectF(14, 9, 16, 26), 8, 8)
-        painter.drawLine(22, 13, 22, 19)
-    elif kind == "folder":
-        path = QPainterPath()
-        path.moveTo(10, 18)
-        path.lineTo(18, 18)
-        path.lineTo(21, 21)
-        path.lineTo(34, 21)
-        path.lineTo(34, 32)
-        path.lineTo(10, 32)
-        path.closeSubpath()
-        painter.drawPath(path)
-    else:
-        painter.drawArc(QRectF(10, 12, 24, 24), 45 * 16, 90 * 16)
-        painter.drawArc(QRectF(15, 17, 14, 14), 45 * 16, 90 * 16)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(color))
-        painter.drawEllipse(QRectF(20, 31, 4, 4))
-
-    painter.end()
-    return pixmap
-
-
-def add_shadow(widget: QWidget, blur: int = 24, y: int = 6, alpha: int = 70) -> None:
-    effect = QGraphicsDropShadowEffect(widget)
-    effect.setBlurRadius(blur)
-    effect.setOffset(0, y)
-    effect.setColor(QColor(0, 0, 0, alpha))
-    widget.setGraphicsEffect(effect)
-
-
-class Switch(QAbstractButton):
-    """Smooth, modern toggle switch in turquoise style."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setCheckable(True)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setFixedSize(48, 28)
-        self._knob = 0.0
-        self._anim = QPropertyAnimation(self, b"knob", self)
-        self._anim.setDuration(160)
-        self._anim.setEasingCurve(QEasingCurve.InOutCubic)
-        self.toggled.connect(self._animate)
-
-    def _animate(self, checked: bool) -> None:
-        self._anim.stop()
-        self._anim.setStartValue(self._knob)
-        self._anim.setEndValue(1.0 if checked else 0.0)
-        self._anim.start()
-
-    def set_state(self, checked: bool) -> None:
-        self.blockSignals(True)
-        self.setChecked(checked)
-        self.blockSignals(False)
-        self._anim.stop()
-        self._knob = 1.0 if checked else 0.0
-        self.update()
-
-    def _get_knob(self) -> float:
-        return self._knob
-
-    def _set_knob(self, value: float) -> None:
-        self._knob = value
-        self.update()
-
-    knob = Property(float, _get_knob, _set_knob)
-
-    def paintEvent(self, event) -> None:
-        t_cfg = THEMES.get(ACTIVE_THEME_KEY, THEMES["night"])
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        rect = self.rect().adjusted(1, 1, -1, -1)
-        if not self.isEnabled():
-            track = QColor(t_cfg["switch_off_track"])
-        else:
-            track = QColor(t_cfg["accent"] if self.isChecked() else t_cfg["switch_off_track"])
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(track)
-        painter.drawRoundedRect(QRectF(rect), rect.height() / 2, rect.height() / 2)
-        diameter = rect.height() - 6
-        x = rect.x() + 3 + (rect.width() - diameter - 6) * self._knob
-        knob_color = t_cfg["switch_knob_on"] if self.isChecked() else t_cfg["switch_knob_off"]
-        painter.setBrush(QColor(knob_color))
-        painter.drawEllipse(QRectF(x, rect.y() + 3, diameter, diameter))
-        painter.end()
-
-
-STYLE = build_qss(ACTIVE_THEME_KEY)
-
-
-class MainWindow(QWidget):
-    def __init__(self) -> None:
-        super().__init__()
-        self.quitting = False
-        self.tray: QSystemTrayIcon | None = None
-        self.busy = False
         self.settings = load_settings()
-
-        # Initialize language: user preference or system auto-detect
         saved_lang = self.settings.get("language")
-        if saved_lang in LANGUAGES:
-            set_lang(saved_lang)
-        else:
-            set_lang(detect_system_language())
-
-        # Initialize theme preference: 'auto', 'day', or 'night'
-        self.theme_mode = self.settings.get("theme", "auto")
-        self.mouse_icon_lbl: QLabel | None = None
-        self.files_icon_lbl: QLabel | None = None
-        self._apply_active_theme(self._resolve_theme_key(self.theme_mode), save=False)
+        self.current_lang = saved_lang if saved_lang in LANGUAGES else detect_system_language()
+        set_lang(self.current_lang)
 
         # Network interface settings
         eth_ifaces, wifi_ifaces = detect_interfaces()
@@ -569,895 +123,462 @@ class MainWindow(QWidget):
         self.edge = self.settings.get("edge", "right")
         if self.edge not in EDGES:
             self.edge = "right"
-        self.deskflow_output = ""
 
         # Deskflow server process
-        self.deskflow = QProcess(self)
-        self.deskflow.setProgram("deskflow-core")
-        self.deskflow.setArguments(["server"])
-        self.deskflow.setProcessChannelMode(QProcess.MergedChannels)
-        self.deskflow.readyReadStandardOutput.connect(self._read_deskflow)
-        self.deskflow.finished.connect(self._deskflow_finished)
-        self.deskflow.errorOccurred.connect(self._deskflow_error)
+        self.deskflow_proc: subprocess.Popen | None = None
+        self.deskflow_thread: threading.Thread | None = None
+        self.mouse_wanted = bool(self.settings.get("mouse_enabled", False))
+        self.mouse_wifi = bool(self.settings.get("mouse_wifi", False))
 
         # File sharing server
         self.file_server: ThreadingHTTPServer | None = None
         self.files_dir = Path(self.settings.get("files_dir", str(DEFAULT_SHARE_DIR)))
         self.files_wanted = bool(self.settings.get("files_enabled", False))
-        self.mouse_wanted = bool(self.settings.get("mouse_enabled", False))
         self.wifi_enabled = bool(self.settings.get("wifi_enabled", False))
-        self.mouse_wifi = bool(self.settings.get("mouse_wifi", False))
-        self._mouse_last_attempt = 0.0
 
-        self.setWindowTitle(t("app_title"))
-        self.setWindowIcon(get_app_icon())
-        self.setMinimumSize(700, 720)
-        self.resize(760, 940)
+        self.theme_mode = self.settings.get("theme", "auto")
+        self.css_provider = None
 
         self._build_ui()
-        self._build_tray()
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.refresh)
-        self.timer.start(2000)
+        self._apply_theme()
+        self._refresh_texts()
         self.refresh()
 
+        # Start periodic UI refresh timer (every 2 seconds)
+        GLib.timeout_add_seconds(2, self._on_timer_tick)
+
+        # Auto-start services if previously wanted and network sharing active
         if self.mouse_wanted and is_deskflow_installed() and sharing_active(self.active_eth):
-            QTimer.singleShot(600, lambda: self.start_mouse(silent=True))
+            GLib.timeout_add(600, lambda: self.start_mouse(silent=True) or False)
         if self.files_wanted and sharing_active(self.active_eth):
-            QTimer.singleShot(900, lambda: self.start_files(silent=True))
+            GLib.timeout_add(900, lambda: self.start_files(silent=True) or False)
 
-    # ---------- UI Construction ----------
-
-    def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-
-        # ---------- Libadwaita-Style Pinned Header Bar ----------
-        header_frame = QFrame()
-        header_frame.setObjectName("headerBar")
-        header = QHBoxLayout(header_frame)
-        header.setContentsMargins(18, 12, 18, 12)
-        header.setSpacing(12)
-
-        logo = QLabel()
-        logo_pixmap = None
-        for p in (ICON_PATH, ASSET_ICON_PATH):
-            if p.exists():
-                pm = QPixmap(str(p))
-                if not pm.isNull():
-                    logo_pixmap = pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    break
-        if logo_pixmap is not None:
-            logo.setPixmap(logo_pixmap)
-        else:
-            logo.setPixmap(make_feature_icon("wifi", "#071013", PRIMARY))
-        logo.setFixedSize(40, 40)
-
-        header_text = QVBoxLayout()
-        header_text.setSpacing(1)
-        self.title_lbl = QLabel(t("app_title"))
-        self.title_lbl.setObjectName("title")
-        self.subtitle_lbl = QLabel(t("app_subtitle"))
-        self.subtitle_lbl.setObjectName("subtitle")
-        header_text.addWidget(self.title_lbl)
-        header_text.addWidget(self.subtitle_lbl)
-
-        # Language Switcher Dropdown
-        self.lang_combo = QComboBox()
-        self.lang_combo.setCursor(Qt.PointingHandCursor)
-        for code, label in LANGUAGES.items():
-            self.lang_combo.addItem(f"{code.upper()} - {label}", code)
-        current_idx = list(LANGUAGES.keys()).index(get_lang())
-        self.lang_combo.setCurrentIndex(current_idx)
-        self.lang_combo.currentIndexChanged.connect(self._on_language_changed)
-
-        # Theme Switcher Dropdown (Auto, Day, Night)
-        self.theme_combo = QComboBox()
-        self.theme_combo.setCursor(Qt.PointingHandCursor)
-        self._rebuild_theme_combo()
-        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
-
-        self.help_btn = QPushButton(t("btn_help"))
-        self.help_btn.setObjectName("help")
-        self.help_btn.setCursor(Qt.PointingHandCursor)
-        self.help_btn.clicked.connect(self.show_help)
-
-        header.addWidget(logo)
-        header.addLayout(header_text)
-        header.addStretch()
-        header.addWidget(self.theme_combo)
-        header.addWidget(self.lang_combo)
-        header.addWidget(self.help_btn)
-
-        outer.addWidget(header_frame)
-
-        # ---------- Scrollable Content Area ----------
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-        content = QWidget()
-        content.setObjectName("content")
-        root = QVBoxLayout(content)
-        root.setContentsMargins(22, 16, 22, 24)
-        root.setSpacing(14)
-
-        # ---------- Hero (Unified Internet Sharing Card) ----------
-        hero = QFrame()
-        hero.setObjectName("hero")
-        add_shadow(hero, blur=26, y=5, alpha=18)
-        hero_layout = QVBoxLayout(hero)
-        hero_layout.setContentsMargins(20, 18, 20, 18)
-        hero_layout.setSpacing(10)
-
-        # Sharing Type Selector Tabs (Ethernet vs Wireless Hotspot)
-        tab_row = QHBoxLayout()
-        tab_row.setSpacing(8)
-        self.btn_tab_eth = QPushButton(t("tab_ethernet"))
-        self.btn_tab_eth.setObjectName("edge")
-        self.btn_tab_eth.setCursor(Qt.PointingHandCursor)
-        self.btn_tab_eth.clicked.connect(lambda: self.set_sharing_mode("ethernet"))
-
-        self.btn_tab_hotspot = QPushButton(t("tab_wireless"))
-        self.btn_tab_hotspot.setObjectName("edge")
-        self.btn_tab_hotspot.setCursor(Qt.PointingHandCursor)
-        self.btn_tab_hotspot.clicked.connect(lambda: self.set_sharing_mode("hotspot"))
-
-        tab_row.addWidget(self.btn_tab_eth)
-        tab_row.addWidget(self.btn_tab_hotspot)
-        tab_row.addStretch()
-        hero_layout.addLayout(tab_row)
-
-        self.state_label = QLabel(t("state_off"))
-        self.state_label.setObjectName("state")
-        hero_layout.addWidget(self.state_label)
-
-        self.hero_hint = QLabel(t("hero_hint_off"))
-        self.hero_hint.setObjectName("subtitle")
-        self.hero_hint.setWordWrap(True)
-        hero_layout.addWidget(self.hero_hint)
-
-        # Ethernet Configuration Container
-        self.eth_config_widget = QWidget()
-        eth_cfg_layout = QHBoxLayout(self.eth_config_widget)
-        eth_cfg_layout.setContentsMargins(0, 4, 0, 4)
-        eth_cfg_layout.setSpacing(8)
-        self.iface_label = QLabel(t("lbl_select_iface"))
-        self.iface_label.setObjectName("key")
-        self.iface_combo = QComboBox()
-        self._refresh_iface_combo()
-        self.iface_combo.currentIndexChanged.connect(self._on_iface_changed)
-        eth_cfg_layout.addWidget(self.iface_label)
-        eth_cfg_layout.addWidget(self.iface_combo)
-        eth_cfg_layout.addStretch()
-        hero_layout.addWidget(self.eth_config_widget)
-
-        # Hotspot Configuration Container
-        self.hotspot_config_widget = QWidget()
-        hotspot_cfg_layout = QHBoxLayout(self.hotspot_config_widget)
-        hotspot_cfg_layout.setContentsMargins(0, 4, 0, 4)
-        hotspot_cfg_layout.setSpacing(12)
-
-        ssid_box = QVBoxLayout()
-        ssid_box.setSpacing(4)
-        self.hotspot_ssid_lbl = QLabel(t("hotspot_ssid"))
-        self.hotspot_ssid_lbl.setObjectName("key")
-        self.hotspot_ssid_input = QLineEdit()
-        self.hotspot_ssid_input.setText(self.settings.get("hotspot_ssid", HOTSPOT_DEFAULT_SSID))
-        ssid_box.addWidget(self.hotspot_ssid_lbl)
-        ssid_box.addWidget(self.hotspot_ssid_input)
-
-        pass_box = QVBoxLayout()
-        pass_box.setSpacing(4)
-        self.hotspot_pass_lbl = QLabel(t("hotspot_password"))
-        self.hotspot_pass_lbl.setObjectName("key")
-        self.hotspot_pass_input = QLineEdit()
-        self.hotspot_pass_input.setText(self.settings.get("hotspot_pass", HOTSPOT_DEFAULT_PASS))
-        pass_box.addWidget(self.hotspot_pass_lbl)
-        pass_box.addWidget(self.hotspot_pass_input)
-
-        hotspot_cfg_layout.addLayout(ssid_box, 1)
-        hotspot_cfg_layout.addLayout(pass_box, 1)
-        hero_layout.addWidget(self.hotspot_config_widget)
-
-        self.toggle_btn = QPushButton(t("btn_enable"))
-        self.toggle_btn.setObjectName("toggle")
-        self.toggle_btn.setCursor(Qt.PointingHandCursor)
-        self.toggle_btn.clicked.connect(self.toggle)
-        hero_layout.addWidget(self.toggle_btn)
-
-        root.addWidget(hero)
-
-        # ---------- KVM (Mouse & Keyboard) ----------
-        mouse_card = QFrame()
-        mouse_card.setObjectName("card")
-        add_shadow(mouse_card, blur=22, y=4, alpha=14)
-        mouse_layout = QVBoxLayout(mouse_card)
-        mouse_layout.setContentsMargins(18, 16, 18, 16)
-        mouse_layout.setSpacing(12)
-
-        mouse_top = QHBoxLayout()
-        mouse_top.setSpacing(12)
-        self.mouse_icon_lbl = QLabel()
-        self._update_feature_icon(self.mouse_icon_lbl, "mouse")
-        self.mouse_icon_lbl.setFixedSize(44, 44)
-        mouse_icon = self.mouse_icon_lbl
-        mouse_text = QVBoxLayout()
-        mouse_text.setSpacing(1)
-        self.mouse_title = QLabel(t("card_mouse_title"))
-        self.mouse_title.setObjectName("sectionTitle")
-        self.mouse_status = QLabel(t("mouse_off"))
-        self.mouse_status.setObjectName("subtitle")
-        mouse_text.addWidget(self.mouse_title)
-        mouse_text.addWidget(self.mouse_status)
-        self.mouse_switch = Switch()
-        self.mouse_switch.set_state(self.mouse_wanted)
-        self.mouse_switch.toggled.connect(self.set_mouse_enabled)
-        mouse_top.addWidget(mouse_icon)
-        mouse_top.addLayout(mouse_text, 1)
-        mouse_top.addWidget(self.mouse_switch, 0, Qt.AlignVCenter)
-        mouse_layout.addLayout(mouse_top)
-
-        self.edge_label = QLabel(t("edge_question"))
-        self.edge_label.setObjectName("key")
-        mouse_layout.addWidget(self.edge_label)
-
-        edge_row = QHBoxLayout()
-        edge_row.setSpacing(7)
-        self.edge_buttons: dict[str, QPushButton] = {}
-        for edge_key in EDGES:
-            btn = QPushButton(t(f"edge_{edge_key}"))
-            btn.setObjectName("edge")
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.clicked.connect(lambda _=False, e=edge_key: self.set_edge(e))
-            edge_row.addWidget(btn)
-            self.edge_buttons[edge_key] = btn
-        mouse_layout.addLayout(edge_row)
-
-        self.edge_hint = QLabel(t("edge_hint"))
-        self.edge_hint.setObjectName("subtitle")
-        self.edge_hint.setWordWrap(True)
-        mouse_layout.addWidget(self.edge_hint)
-
-        wifi_row = QHBoxLayout()
-        wifi_row.setSpacing(12)
-        wifi_text = QVBoxLayout()
-        wifi_text.setSpacing(1)
-        self.wifi_title = QLabel(t("wifi_access_title"))
-        self.wifi_title.setStyleSheet(f"color: {TEXT}; font-weight: 600;")
-        self.wifi_desc = QLabel(t("wifi_access_desc"))
-        self.wifi_desc.setObjectName("subtitle")
-        wifi_text.addWidget(self.wifi_title)
-        wifi_text.addWidget(self.wifi_desc)
-        self.mouse_wifi_switch = Switch()
-        self.mouse_wifi_switch.set_state(self.mouse_wifi)
-        self.mouse_wifi_switch.toggled.connect(self.set_mouse_wifi)
-        wifi_row.addLayout(wifi_text, 1)
-        wifi_row.addWidget(self.mouse_wifi_switch, 0, Qt.AlignVCenter)
-        mouse_layout.addLayout(wifi_row)
-
-        self.mouse_help = QPushButton(t("btn_show_win_setup"))
-        self.mouse_help.setObjectName("soft")
-        self.mouse_help.setCursor(Qt.PointingHandCursor)
-        self.mouse_help.clicked.connect(self.show_mouse_help)
-        mouse_layout.addWidget(self.mouse_help)
-
-        root.addWidget(mouse_card)
-
-        # ---------- Files (Web HTTP Transfer) ----------
-        files_card = QFrame()
-        files_card.setObjectName("card")
-        add_shadow(files_card, blur=22, y=4, alpha=14)
-        files_layout = QVBoxLayout(files_card)
-        files_layout.setContentsMargins(18, 16, 18, 16)
-        files_layout.setSpacing(12)
-
-        files_top = QHBoxLayout()
-        files_top.setSpacing(12)
-        self.files_icon_lbl = QLabel()
-        self._update_feature_icon(self.files_icon_lbl, "folder")
-        self.files_icon_lbl.setFixedSize(44, 44)
-        files_icon = self.files_icon_lbl
-        files_text = QVBoxLayout()
-        files_text.setSpacing(1)
-        self.files_title = QLabel(t("card_files_title"))
-        self.files_title.setObjectName("sectionTitle")
-        self.files_status = QLabel(t("files_off"))
-        self.files_status.setObjectName("subtitle")
-        files_text.addWidget(self.files_title)
-        files_text.addWidget(self.files_status)
-        self.files_switch = Switch()
-        self.files_switch.set_state(self.files_wanted)
-        self.files_switch.toggled.connect(self.set_files_enabled)
-        files_top.addWidget(files_icon)
-        files_top.addLayout(files_text, 1)
-        files_top.addWidget(self.files_switch, 0, Qt.AlignVCenter)
-        files_layout.addLayout(files_top)
-
-        # Selected folder display & Change button
-        folder_row = QHBoxLayout()
-        folder_row.setSpacing(8)
-        self.folder_path_lbl = QLabel(self._pretty_dir(self.files_dir))
-        self.folder_path_lbl.setObjectName("mono")
-        self.folder_path_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.change_folder_btn = QPushButton(t("btn_change_folder"))
-        self.change_folder_btn.setObjectName("soft")
-        self.change_folder_btn.setCursor(Qt.PointingHandCursor)
-        self.change_folder_btn.clicked.connect(self.select_files_directory)
-        folder_row.addWidget(self.folder_path_lbl, 1)
-        folder_row.addWidget(self.change_folder_btn)
-        files_layout.addLayout(folder_row)
-
-        action_row = QHBoxLayout()
-        action_row.setSpacing(8)
-        self.open_btn = QPushButton(t("btn_open_folder"))
-        self.open_btn.setObjectName("soft")
-        self.open_btn.setCursor(Qt.PointingHandCursor)
-        self.open_btn.clicked.connect(self.open_files_dir)
-        self.copy_btn = QPushButton(t("btn_copy_address"))
-        self.copy_btn.setObjectName("soft")
-        self.copy_btn.setCursor(Qt.PointingHandCursor)
-        self.copy_btn.clicked.connect(self.copy_files_url)
-        self.win_guide_btn = QPushButton(t("btn_show_win_files_guide"))
-        self.win_guide_btn.setObjectName("soft")
-        self.win_guide_btn.setCursor(Qt.PointingHandCursor)
-        self.win_guide_btn.clicked.connect(self.show_win_files_guide)
-        action_row.addWidget(self.open_btn)
-        action_row.addWidget(self.copy_btn)
-        action_row.addWidget(self.win_guide_btn)
-        action_row.addStretch()
-        files_layout.addLayout(action_row)
-
-        wifi_files_row = QHBoxLayout()
-        wifi_files_row.setSpacing(12)
-        wifi_files_text = QVBoxLayout()
-        wifi_files_text.setSpacing(1)
-        self.wifi_files_title = QLabel(t("wifi_files_title"))
-        self.wifi_files_title.setStyleSheet(f"color: {TEXT}; font-weight: 600;")
-        self.wifi_files_desc = QLabel(t("wifi_files_desc"))
-        self.wifi_files_desc.setObjectName("subtitle")
-        wifi_files_text.addWidget(self.wifi_files_title)
-        wifi_files_text.addWidget(self.wifi_files_desc)
-        self.wifi_switch = Switch()
-        self.wifi_switch.set_state(self.wifi_enabled)
-        self.wifi_switch.toggled.connect(self.set_wifi_access)
-        wifi_files_row.addLayout(wifi_files_text, 1)
-        wifi_files_row.addWidget(self.wifi_switch, 0, Qt.AlignVCenter)
-        files_layout.addLayout(wifi_files_row)
-
-        root.addWidget(files_card)
-
-        # ---------- Details Disclosure ----------
-        self.details_btn = QPushButton(f"{t('details_title')}  ▾")
-        self.details_btn.setObjectName("disclosure")
-        self.details_btn.setCursor(Qt.PointingHandCursor)
-        self.details_btn.clicked.connect(self.toggle_details)
-        root.addWidget(self.details_btn)
-
-        self.details = QFrame()
-        self.details.setObjectName("card")
-        details_layout = QVBoxLayout(self.details)
-        details_layout.setContentsMargins(18, 14, 18, 14)
-        details_layout.setSpacing(8)
-
-        self.link_key, self.link_label = self._info_row(details_layout, t("info_ethernet"), "-")
-        self.client_key, self.client_label = self._info_row(details_layout, t("info_client_pc"), t("no_clients"))
-        self.wifi_key, self.wifi_label = self._info_row(details_layout, t("info_wifi"), "-")
-        self.gateway_key, self.gateway_label = self._info_row(
-            details_layout, t("info_gateway"), f"{SHARE_IP}  ·  DHCP {DHCP_RANGE}"
-        )
-        self.dir_key, self.dir_label = self._info_row(
-            details_layout, t("info_folder"), self._pretty_dir(self.files_dir)
-        )
-
-        self.addresses_title = self._section_title(t("info_addresses"))
-        details_layout.addWidget(self.addresses_title)
-
-        self.cable_key, self.files_url, self.cable_copy_btn = self._endpoint_row(
-            details_layout, t("addr_cable"), f"http://{SHARE_IP}:{FILE_PORT}", self.copy_files_url
-        )
-        self.wifi_addr_key, self.files_wifi_url, self.wifi_copy_btn = self._endpoint_row(
-            details_layout, t("addr_wifi"), t("state_off"), self.copy_wifi_url
-        )
-        self.smb_addr_key, self.smb_path, self.smb_copy_btn = self._endpoint_row(
-            details_layout, t("addr_smb"), SMB_PATH, self.copy_smb_path
-        )
-        self.details.setVisible(False)
-        root.addWidget(self.details)
-
-        # ---------- Footer Row ----------
-        footer = QHBoxLayout()
-        footer.setSpacing(8)
-        self.autostart = QCheckBox(t("autostart"))
-        self.autostart.setChecked(AUTOSTART_PATH.exists())
-        self.autostart.toggled.connect(self.set_autostart)
-
-        self.refresh_btn = QPushButton(t("btn_refresh"))
-        self.refresh_btn.setObjectName("ghost")
-        self.refresh_btn.setCursor(Qt.PointingHandCursor)
-        self.refresh_btn.clicked.connect(self.refresh)
-
-        self.quit_btn = QPushButton(t("btn_quit"))
-        self.quit_btn.setObjectName("ghost")
-        self.quit_btn.setCursor(Qt.PointingHandCursor)
-        self.quit_btn.clicked.connect(self.quit_app)
-
-        footer.addWidget(self.autostart)
-        footer.addStretch()
-        footer.addWidget(self.refresh_btn)
-        footer.addWidget(self.quit_btn)
-        root.addLayout(footer)
-
-        scroll.setWidget(content)
-        outer.addWidget(scroll)
-
-    def _refresh_iface_combo(self) -> None:
-        self.iface_combo.blockSignals(True)
-        self.iface_combo.clear()
-        eth_ifaces, _ = detect_interfaces()
-        self.eth_ifaces = eth_ifaces
-        for dev in eth_ifaces:
-            self.iface_combo.addItem(f"{dev} ({'Ethernet'})", dev)
-        if not eth_ifaces:
-            self.iface_combo.addItem(f"{self.active_eth} ({'Fallback'})", self.active_eth)
-
-        idx = self.iface_combo.findData(self.active_eth)
-        if idx >= 0:
-            self.iface_combo.setCurrentIndex(idx)
-        self.iface_combo.blockSignals(False)
-
-    def _on_iface_changed(self) -> None:
-        selected = self.iface_combo.currentData()
-        if selected and selected != self.active_eth:
-            self.active_eth = selected
-            self.settings["eth_iface"] = selected
-            save_settings(self.settings)
-            self.refresh()
-
-    def _info_row(self, layout: QVBoxLayout, key: str, value: str) -> tuple[QLabel, QLabel]:
-        row = QHBoxLayout()
-        key_label = QLabel(key)
-        key_label.setObjectName("key")
-        value_label = QLabel(value)
-        value_label.setObjectName("value")
-        value_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        value_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        row.addWidget(key_label)
-        row.addStretch()
-        row.addWidget(value_label)
-        layout.addLayout(row)
-        return key_label, value_label
-
-    def _section_title(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setObjectName("section")
-        return label
-
-    def _pretty_dir(self, path: Path) -> str:
-        text = str(path)
-        home = str(Path.home())
-        if text == home:
-            return "~"
-        if text.startswith(home + os.sep):
-            return "~" + text[len(home):]
-        return text
-
-    def _endpoint_row(
-        self, layout: QVBoxLayout, key: str, value: str, callback
-    ) -> tuple[QLabel, QLabel, QPushButton]:
-        row = QHBoxLayout()
-        key_label = QLabel(key)
-        key_label.setObjectName("key")
-        key_label.setMinimumWidth(44)
-        value_label = QLabel(value)
-        value_label.setObjectName("mono")
-        value_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        copy_btn = QPushButton(t("btn_copy"))
-        copy_btn.setObjectName("ghost")
-        copy_btn.setCursor(Qt.PointingHandCursor)
-        copy_btn.clicked.connect(callback)
-        row.addWidget(key_label)
-        row.addWidget(value_label)
-        row.addStretch()
-        row.addWidget(copy_btn)
-        layout.addLayout(row)
-        return key_label, value_label, copy_btn
-
-    def _build_tray(self) -> None:
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
-        self.tray = QSystemTrayIcon(make_tray_icon(False), self)
-        self.tray.setToolTip(t("app_title"))
-        menu = QMenu()
-        self.tray_toggle = QAction(t("tray_enable"), self)
-        self.tray_toggle.triggered.connect(self.toggle)
-        self.tray_mouse = QAction(t("tray_mouse_enable"), self)
-        self.tray_mouse.triggered.connect(self.toggle_mouse)
-        self.tray_files = QAction(t("tray_files_enable"), self)
-        self.tray_files.triggered.connect(self.toggle_files)
-        self.tray_show = QAction(t("tray_show"), self)
-        self.tray_show.triggered.connect(self.show_window)
-        self.tray_quit = QAction(t("tray_quit"), self)
-        self.tray_quit.triggered.connect(self.quit_app)
-
-        menu.addAction(self.tray_toggle)
-        menu.addAction(self.tray_mouse)
-        menu.addAction(self.tray_files)
-        menu.addAction(self.tray_show)
-        menu.addSeparator()
-        menu.addAction(self.tray_quit)
-        self.tray.setContextMenu(menu)
-        self.tray.activated.connect(self._tray_clicked)
-        self.tray.show()
-
-    def _tray_clicked(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
-            self.toggle_window()
-
-    def _resolve_theme_key(self, mode: str) -> str:
-        if mode in ("day", "night"):
-            return mode
-        return detect_system_theme()
-
-    def _apply_active_theme(self, theme_key: str, save: bool = True) -> None:
-        global ACTIVE_THEME_KEY, PRIMARY, PRIMARY_HOVER, PRIMARY_DARK, TEXT, DIM
-        ACTIVE_THEME_KEY = theme_key
-        t_cfg = THEMES.get(theme_key, THEMES["night"])
-        PRIMARY = t_cfg["accent"]
-        PRIMARY_HOVER = t_cfg["accent_hover"]
-        PRIMARY_DARK = t_cfg["accent"]
-        TEXT = t_cfg["text"]
-        DIM = t_cfg["dim"]
-
-        app = QApplication.instance()
-        if app is not None:
-            app.setStyleSheet(build_qss(theme_key))
-
-        if self.mouse_icon_lbl is not None:
-            self._update_feature_icon(self.mouse_icon_lbl, "mouse")
-        if self.files_icon_lbl is not None:
-            self._update_feature_icon(self.files_icon_lbl, "folder")
-
-        if hasattr(self, "mouse_switch"):
-            self.mouse_switch.update()
-        if hasattr(self, "files_switch"):
-            self.files_switch.update()
-
-        if save:
-            self.settings["theme"] = self.theme_mode
-            save_settings(self.settings)
-
-    def _update_feature_icon(self, label: QLabel, kind: str) -> None:
-        t_cfg = THEMES.get(ACTIVE_THEME_KEY, THEMES["night"])
-        label.setPixmap(make_feature_icon(kind, t_cfg["accent"], t_cfg["card_border"]))
-
-    def _rebuild_theme_combo(self) -> None:
-        if not hasattr(self, "theme_combo"):
-            return
-        self.theme_combo.blockSignals(True)
-        self.theme_combo.clear()
-        self.theme_combo.addItem(f"{t('theme_auto')}", "auto")
-        self.theme_combo.addItem(f"{t('theme_day')}", "day")
-        self.theme_combo.addItem(f"{t('theme_night')}", "night")
-        idx = {"auto": 0, "day": 1, "night": 2}.get(self.theme_mode, 0)
-        self.theme_combo.setCurrentIndex(idx)
-        self.theme_combo.blockSignals(False)
-
-    def _on_theme_changed(self, index: int) -> None:
-        mode = self.theme_combo.itemData(index)
-        if mode in ("auto", "day", "night"):
-            self.theme_mode = mode
-            self._apply_active_theme(self._resolve_theme_key(mode), save=True)
-            self.refresh()
-
-    def _on_language_changed(self, index: int) -> None:
-        lang_code = self.lang_combo.itemData(index)
-        if lang_code and lang_code in LANGUAGES:
-            set_lang(lang_code)
-            self.settings["language"] = lang_code
-            save_settings(self.settings)
-            self._update_ui_texts()
-            self.refresh()
-
-    def set_sharing_mode(self, mode: str) -> None:
-        self.sharing_mode = mode
-        self.settings["sharing_mode"] = mode
-        save_settings(self.settings)
+    def _on_timer_tick(self) -> bool:
         self.refresh()
+        return True
 
-    def _update_ui_texts(self) -> None:
-        self.setWindowTitle(t("app_title"))
-        self.title_lbl.setText(t("app_title"))
-        self.subtitle_lbl.setText(t("app_subtitle"))
-        self.help_btn.setText(t("btn_help"))
-        self._rebuild_theme_combo()
-
-        self.btn_tab_eth.setText(t("tab_ethernet"))
-        self.btn_tab_hotspot.setText(t("tab_wireless"))
-        self.iface_label.setText(t("lbl_select_iface"))
-        self.hotspot_ssid_lbl.setText(t("hotspot_ssid"))
-        self.hotspot_pass_lbl.setText(t("hotspot_password"))
-
-        self.mouse_title.setText(t("card_mouse_title"))
-        self.edge_label.setText(t("edge_question"))
-        for edge_key, btn in self.edge_buttons.items():
-            btn.setText(t(f"edge_{edge_key}"))
-        self.edge_hint.setText(t("edge_hint"))
-        self.wifi_title.setText(t("wifi_access_title"))
-        self.wifi_desc.setText(t("wifi_access_desc"))
-        self.mouse_help.setText(t("btn_show_win_setup"))
-
-        self.files_title.setText(t("card_files_title"))
-        self.change_folder_btn.setText(t("btn_change_folder"))
-        self.open_btn.setText(t("btn_open_folder"))
-        self.copy_btn.setText(t("btn_copy_address"))
-        self.win_guide_btn.setText(t("btn_show_win_files_guide"))
-        self.wifi_files_title.setText(t("wifi_files_title"))
-        self.wifi_files_desc.setText(t("wifi_files_desc"))
-
-        vis = self.details.isVisible()
-        self.details_btn.setText(f"{t('details_title')}  {'▴' if vis else '▾'}")
-        self.link_key.setText(t("info_ethernet"))
-        self.client_key.setText(t("info_client_pc"))
-        self.wifi_key.setText(t("info_wifi"))
-        self.gateway_key.setText(t("info_gateway"))
-        self.dir_key.setText(t("info_folder"))
-        self.addresses_title.setText(t("info_addresses"))
-
-        self.cable_key.setText(t("addr_cable"))
-        self.cable_copy_btn.setText(t("btn_copy"))
-        self.wifi_addr_key.setText(t("addr_wifi"))
-        self.wifi_copy_btn.setText(t("btn_copy"))
-        self.smb_addr_key.setText(t("addr_smb"))
-        self.smb_copy_btn.setText(t("btn_copy"))
-
-        self.autostart.setText(t("autostart"))
-        self.refresh_btn.setText(t("btn_refresh"))
-        self.quit_btn.setText(t("btn_quit"))
-
-        if self.tray:
-            self.tray_show.setText(t("tray_show"))
-            self.tray_quit.setText(t("tray_quit"))
-
-    # ---------- Status Refresh ----------
-
-    def refresh(self) -> None:
-        is_eth = (self.sharing_mode == "ethernet")
-        self.btn_tab_eth.setProperty("selected", is_eth)
-        self.btn_tab_hotspot.setProperty("selected", not is_eth)
-        self.btn_tab_eth.style().unpolish(self.btn_tab_eth)
-        self.btn_tab_eth.style().polish(self.btn_tab_eth)
-        self.btn_tab_hotspot.style().unpolish(self.btn_tab_hotspot)
-        self.btn_tab_hotspot.style().polish(self.btn_tab_hotspot)
-
-        self.eth_config_widget.setVisible(is_eth)
-        self.hotspot_config_widget.setVisible(not is_eth)
-
-        eth_active = sharing_active(self.active_eth)
-        hotspot_on = is_hotspot_active()
-        active = eth_active if is_eth else hotspot_on
-        has_link = is_carrier_up(self.active_eth)
-
-        self.state_label.setText(t("state_on") if active else t("state_off"))
-        self.state_label.setStyleSheet(
-            f"color: {PRIMARY if active else DIM};"
-        )
-        if is_eth:
-            self.hero_hint.setText(t("hero_hint_on") if eth_active else t("hero_hint_ethernet"))
-        else:
-            self.hero_hint.setText(t("hotspot_on") if hotspot_on else t("hero_hint_hotspot"))
-
-        self.toggle_btn.setText(t("btn_disable") if active else t("btn_enable"))
-        self.toggle_btn.setProperty("off", not active)
-        self.toggle_btn.style().unpolish(self.toggle_btn)
-        self.toggle_btn.style().polish(self.toggle_btn)
-
-        if has_link:
-            spd = link_speed(self.active_eth)
-            self.link_label.setText(f"{t('cable_connected')} · {spd}")
-            self.link_label.setStyleSheet(f"color: {PRIMARY}; font-weight: 600;")
-        else:
-            self.link_label.setText(t("cable_disconnected"))
-            self.link_label.setStyleSheet(f"color: {AMBER}; font-weight: 600;")
-
-        found = clients(self.active_eth)
-        if found:
-            self.client_label.setText("  ·  ".join(ip for ip, _ in found))
-        else:
-            self.client_label.setText(t("no_clients"))
-
-        ssid, ip = wifi_info()
-        self.wifi_label.setText(f"{ssid}  ·  {ip}")
-        self.gateway_label.setText(f"{SHARE_IP}  ·  DHCP {DHCP_RANGE}")
-        self.dir_label.setText(self._pretty_dir(self.files_dir))
-
-        # Deskflow status
-        running = self.deskflow.state() == QProcess.Running
-        connected = running and is_client_connected()
-        self.mouse_switch.set_state(running or self.mouse_wanted)
-        self.mouse_wifi_switch.set_state(self.mouse_wifi)
-        if not is_deskflow_installed():
-            mouse_text, mouse_color = t("mouse_not_installed"), RED
-        elif connected:
-            mouse_text, mouse_color = t("mouse_connected"), PRIMARY
-        elif running:
-            mouse_text, mouse_color = t("mouse_waiting"), AMBER
-        elif self.mouse_wanted:
-            mouse_text, mouse_color = t("mouse_waiting_sharing"), AMBER
-        else:
-            mouse_text, mouse_color = t("mouse_off"), DIM
-        self.mouse_status.setText(mouse_text)
-        self.mouse_status.setStyleSheet(f"color: {mouse_color}; font-weight: 600;")
-
-        for edge_k, btn in self.edge_buttons.items():
-            btn.setProperty("selected", edge_k == self.edge)
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
-
-        if self.deskflow.state() == QProcess.Running and not eth_active:
-            self.stop_mouse(keep_wanted=True)
-        if (
-            self.mouse_wanted
-            and self.deskflow.state() == QProcess.NotRunning
-            and eth_active
-            and iface_address(self.active_eth) != "-"
-            and is_deskflow_installed()
-            and time.monotonic() - self._mouse_last_attempt > 5
-        ):
-            self._mouse_last_attempt = time.monotonic()
-            self.start_mouse(silent=True)
-
-        # Files status
-        if self.file_server is not None and not (eth_active or hotspot_on):
-            self._close_file_server()
-        if (
-            self.files_wanted
-            and self.file_server is None
-            and (eth_active or hotspot_on)
-            and (iface_address(self.active_eth) != "-" or hotspot_on)
-        ):
-            self.start_files(silent=True)
-
-        files_on = self.file_server is not None
-        self.files_switch.set_state(files_on or self.files_wanted)
-        self.wifi_switch.set_state(self.wifi_enabled)
-        if files_on:
-            files_text, files_color = t("files_active"), PRIMARY
-        elif self.files_wanted:
-            files_text, files_color = t("files_waiting_sharing"), AMBER
-        else:
-            files_text, files_color = t("files_off"), DIM
-        self.files_status.setText(files_text)
-        self.files_status.setStyleSheet(f"color: {files_color}; font-weight: 600;")
-
-        if self.wifi_enabled or hotspot_on:
-            w_url = self.wifi_url()
-            if w_url:
-                self.files_wifi_url.setText(w_url)
-                self.wifi_copy_btn.setEnabled(True)
-            else:
-                self.files_wifi_url.setText(t("state_off"))
-                self.wifi_copy_btn.setEnabled(False)
-        else:
-            self.files_wifi_url.setText(t("state_off"))
-            self.wifi_copy_btn.setEnabled(False)
-
-        tooltip = f"{t('app_title')}: {t('state_on') if active else t('state_off')}"
-        if self.tray:
-            self.tray.setIcon(make_tray_icon(active))
-            self.tray.setToolTip(tooltip)
-            self.tray_toggle.setText(t("tray_disable") if active else t("tray_enable"))
-            self.tray_mouse.setText(t("tray_mouse_disable") if running else t("tray_mouse_enable"))
-            self.tray_files.setText(t("tray_files_disable") if files_on else t("tray_files_enable"))
-
-        self.setWindowIcon(get_app_icon())
-
-    def toggle_details(self) -> None:
-        visible = not self.details.isVisible()
-        self.details.setVisible(visible)
-        self.details_btn.setText(
-            f"{t('details_title')}  {'▴' if visible else '▾'}"
-        )
-
-    def show_help(self) -> None:
-        box = QMessageBox(self)
-        box.setWindowTitle(t("btn_help"))
-        box.setIcon(QMessageBox.Information)
-        box.setText(f"{t('app_title')} - {t('app_subtitle')}")
-        box.setInformativeText(
-            f"1) {t('help_step1_title')}\n{t('help_step1_desc')}\n\n"
-            f"2) {t('help_step2_title')}\n{t('help_step2_desc')}\n\n"
-            f"3) {t('help_step3_title')}\n{t('help_step3_desc')}\n\n"
-            f"{t('help_contact')}"
-        )
-        box.exec()
-
-    # ---------- Sharing Actions ----------
-
-    def toggle(self) -> None:
-        if self.busy:
-            return
-        self.busy = True
-        self.toggle_btn.setEnabled(False)
-        self.toggle_btn.setText(t("btn_busy"))
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+    def _detect_system_theme(self) -> str:
         try:
-            if self.sharing_mode == "hotspot":
-                if is_hotspot_active():
-                    self._disable_hotspot_action()
-                else:
-                    self._enable_hotspot_action()
-            else:
-                if sharing_active(self.active_eth):
-                    self._disable_ethernet_action()
-                else:
-                    self._enable_ethernet_action()
-        finally:
-            QApplication.restoreOverrideCursor()
-            self.toggle_btn.setEnabled(True)
-            self.busy = False
+            sm = Adw.StyleManager.get_default()
+            return "night" if sm.get_dark() else "day"
+        except Exception:
+            return "night"
+
+    def _resolve_theme_key(self) -> str:
+        if self.theme_mode in ("day", "night"):
+            return self.theme_mode
+        return self._detect_system_theme()
+
+    def _apply_theme(self):
+        """Applies solid Day (#F4F1EA/#EFECE6/#2B2A27/#1A3328) or Night (#080C0A/#101613/#E8E4DA/#589E7B) theme."""
+        active_key = self._resolve_theme_key()
+        is_day = (active_key == "day")
+
+        if is_day:
+            bg = "#F4F1EA"
+            card = "#EFECE6"
+            card_border = "rgba(26, 51, 40, 0.15)"
+            text = "#2B2A27"
+            dim = "#6B6862"
+            accent = "#1A3328"
+            accent_hover = "#284e3e"
+            accent_text = "#F4F1EA"
+            header_bg = "#EAE5DC"
+        else:
+            bg = "#080C0A"
+            card = "#101613"
+            card_border = "rgba(88, 158, 123, 0.20)"
+            text = "#E8E4DA"
+            dim = "#8A948E"
+            accent = "#589E7B"
+            accent_hover = "#6db893"
+            accent_text = "#080C0A"
+            header_bg = "#0d1310"
+
+        css_text = f"""
+        window, window.background {{
+            border-radius: 16px;
+            background: {bg};
+            color: {text};
+        }}
+
+        headerbar {{
+            background: {header_bg};
+            border-bottom: 1px solid {card_border};
+            color: {text};
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }}
+
+        preferencesgroup > box {{
+            background: {card};
+            border: 1px solid {card_border};
+            border-radius: 14px;
+            padding: 4px;
+            color: {text};
+        }}
+
+        .boxed-list {{
+            background: {card};
+            border: 1px solid {card_border};
+            border-radius: 14px;
+            color: {text};
+        }}
+
+        .boxed-list row {{
+            border-bottom: 1px solid {card_border};
+            color: {text};
+        }}
+
+        .suggested-action {{
+            background: {accent};
+            color: {accent_text};
+            font-weight: 700;
+            border: none;
+        }}
+
+        .suggested-action:hover {{
+            background: {accent_hover};
+        }}
+
+        .destructive-action {{
+            background: #ef4444;
+            color: #ffffff;
+            font-weight: 700;
+            border: none;
+        }}
+
+        popover contents, popover .view, popover listview {{
+            background-color: {card};
+            color: {text};
+            border-radius: 12px;
+            border: 1px solid {card_border};
+            padding: 6px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }}
+
+        popover listview row {{
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin: 2px 0;
+            min-height: 38px;
+            color: {text};
+        }}
+
+        popover listview row:selected, popover listview row:hover {{
+            background: {card_border};
+            color: {accent};
+        }}
+        """
+
+        if self.css_provider is not None:
+            Gtk.StyleContext.remove_provider_for_display(
+                Gdk.Display.get_default(),
+                self.css_provider
+            )
+
+        self.css_provider = Gtk.CssProvider()
+        self.css_provider.load_from_data(css_text.encode('utf-8'))
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            self.css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def _build_ui(self):
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.set_content(main_box)
+
+        # Header Bar
+        self.header_bar = Adw.HeaderBar()
+        main_box.append(self.header_bar)
+
+        # Language Selector (Pill button with locale icon)
+        self.lang_btn = Gtk.MenuButton()
+        self.lang_btn.add_css_class("flat")
+        self.lang_btn.set_tooltip_text("Language / Dil")
+
+        lang_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        lang_icon = Gtk.Image.new_from_icon_name("preferences-desktop-locale-symbolic")
+        self.lang_btn_label = Gtk.Label(label=LANGUAGES.get(self.current_lang, "English"))
+        self.lang_btn_label.add_css_class("heading")
+        lang_btn_box.append(lang_icon)
+        lang_btn_box.append(self.lang_btn_label)
+        self.lang_btn.set_child(lang_btn_box)
+
+        lang_popover = Gtk.Popover()
+        lang_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        lang_box.set_margin_top(8)
+        lang_box.set_margin_bottom(8)
+        lang_box.set_margin_start(8)
+        lang_box.set_margin_end(8)
+
+        for code, label in LANGUAGES.items():
+            btn = Gtk.Button(label=label)
+            btn.add_css_class("flat")
+            btn.connect("clicked", self._on_change_language, code, lang_popover)
+            lang_box.append(btn)
+
+        lang_popover.set_child(lang_box)
+        self.lang_btn.set_popover(lang_popover)
+        self.header_bar.pack_start(self.lang_btn)
+
+        # Theme Switcher (Auto / Day / Night)
+        self.theme_btn = Gtk.MenuButton()
+        self.theme_btn.add_css_class("flat")
+        self.theme_btn.set_tooltip_text("Theme / Tema")
+        theme_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        theme_icon = Gtk.Image.new_from_icon_name("display-brightness-symbolic")
+        self.theme_btn_label = Gtk.Label(label=t(f"theme_{self.theme_mode}", self.current_lang))
+        self.theme_btn_label.add_css_class("heading")
+        theme_btn_box.append(theme_icon)
+        theme_btn_box.append(self.theme_btn_label)
+        self.theme_btn.set_child(theme_btn_box)
+
+        theme_popover = Gtk.Popover()
+        theme_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        theme_box.set_margin_top(8)
+        theme_box.set_margin_bottom(8)
+        theme_box.set_margin_start(8)
+        theme_box.set_margin_end(8)
+
+        for m_key in ("auto", "day", "night"):
+            m_btn = Gtk.Button(label=t(f"theme_{m_key}", self.current_lang))
+            m_btn.add_css_class("flat")
+            m_btn.connect("clicked", self._on_change_theme, m_key, theme_popover)
+            theme_box.append(m_btn)
+
+        theme_popover.set_child(theme_box)
+        self.theme_btn.set_popover(theme_popover)
+        self.header_bar.pack_start(self.theme_btn)
+
+        # Help / Guide Button in HeaderBar
+        self.help_btn = Gtk.Button.new_from_icon_name("help-about-symbolic")
+        self.help_btn.connect("clicked", self._on_show_help)
+        self.header_bar.pack_end(self.help_btn)
+
+        # Scrolled Window
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+        scrolled.set_hexpand(True)
+        main_box.append(scrolled)
+
+        # Clamp Container
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(720)
+        clamp.set_tightening_threshold(560)
+        scrolled.set_child(clamp)
+
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(32)
+        content_box.set_margin_start(16)
+        content_box.set_margin_end(16)
+        clamp.set_child(content_box)
+
+        # 1. Header Banner Box
+        self.banner_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.banner_box.set_halign(Gtk.Align.CENTER)
+        self.banner_box.set_margin_top(12)
+        self.banner_box.set_margin_bottom(12)
+        content_box.append(self.banner_box)
+
+        if ICON_PATH.exists():
+            self.banner_icon = Gtk.Image.new_from_file(str(ICON_PATH))
+            self.banner_icon.set_pixel_size(96)
+        else:
+            self.banner_icon = Gtk.Image.new_from_icon_name("network-wired-symbolic")
+            self.banner_icon.set_pixel_size(84)
+        self.banner_box.append(self.banner_icon)
+
+        self.banner_title = Gtk.Label(label="Ramord Link")
+        self.banner_title.add_css_class("title-1")
+        self.banner_box.append(self.banner_title)
+
+        self.banner_desc = Gtk.Label()
+        self.banner_desc.add_css_class("body")
+        self.banner_desc.add_css_class("dim-label")
+        self.banner_desc.set_wrap(True)
+        self.banner_desc.set_justify(Gtk.Justification.CENTER)
+        self.banner_desc.set_max_width_chars(54)
+        self.banner_box.append(self.banner_desc)
+
+        # 2. Internet Sharing Group (Ethernet / Hotspot)
+        self.sharing_group = Adw.PreferencesGroup()
+        content_box.append(self.sharing_group)
+
+        # Mode Selection: Ethernet vs Hotspot
+        self.mode_row = Adw.ComboRow()
+        self.mode_model = Gtk.StringList()
+        self.mode_row.set_model(self.mode_model)
+        self.mode_row.connect("notify::selected", self._on_mode_combo_changed)
+        self.sharing_group.add(self.mode_row)
+
+        # Ethernet Interface Row
+        self.iface_row = Adw.ComboRow()
+        self.iface_model = Gtk.StringList()
+        self.iface_row.set_model(self.iface_model)
+        self.iface_row.connect("notify::selected", self._on_iface_combo_changed)
+        self.sharing_group.add(self.iface_row)
+
+        # Hotspot SSID & Password Rows
+        self.hotspot_ssid_row = Adw.EntryRow()
+        self.hotspot_ssid_row.set_text(self.settings.get("hotspot_ssid", HOTSPOT_DEFAULT_SSID))
+        self.sharing_group.add(self.hotspot_ssid_row)
+
+        self.hotspot_pass_row = Adw.PasswordEntryRow()
+        self.hotspot_pass_row.set_text(self.settings.get("hotspot_pass", HOTSPOT_DEFAULT_PASS))
+        self.sharing_group.add(self.hotspot_pass_row)
+
+        # Main Action Button Row
+        self.action_row = Adw.ActionRow()
+        self.action_btn = Gtk.Button()
+        self.action_btn.add_css_class("suggested-action")
+        self.action_btn.set_valign(Gtk.Align.CENTER)
+        self.action_btn.connect("clicked", self._on_toggle_sharing)
+        self.action_row.add_suffix(self.action_btn)
+        self.sharing_group.add(self.action_row)
+
+        # 3. KVM Mouse & Keyboard Group
+        self.mouse_group = Adw.PreferencesGroup()
+        content_box.append(self.mouse_group)
+
+        self.mouse_switch_row = Adw.SwitchRow()
+        self.mouse_switch_row.set_active(self.mouse_wanted)
+        self.mouse_switch_row.connect("notify::active", self._on_mouse_switch_toggled)
+        self.mouse_group.add(self.mouse_switch_row)
+
+        self.edge_row = Adw.ComboRow()
+        self.edge_model = Gtk.StringList()
+        self.edge_row.set_model(self.edge_model)
+        self.edge_row.connect("notify::selected", self._on_edge_changed)
+        self.mouse_group.add(self.edge_row)
+
+        self.mouse_guide_row = Adw.ActionRow()
+        btn_mouse_guide = Gtk.Button.new_from_icon_name("dialog-information-symbolic")
+        btn_mouse_guide.set_valign(Gtk.Align.CENTER)
+        btn_mouse_guide.connect("clicked", self._on_show_mouse_guide)
+        self.mouse_guide_row.add_suffix(btn_mouse_guide)
+        self.mouse_group.add(self.mouse_guide_row)
+
+        # 4. Web File Sharing Group
+        self.files_group = Adw.PreferencesGroup()
+        content_box.append(self.files_group)
+
+        self.files_switch_row = Adw.SwitchRow()
+        self.files_switch_row.set_active(self.files_wanted)
+        self.files_switch_row.connect("notify::active", self._on_files_switch_toggled)
+        self.files_group.add(self.files_switch_row)
+
+        self.folder_row = Adw.ActionRow()
+        self.folder_row.set_subtitle(str(self.files_dir))
+
+        btn_open_folder = Gtk.Button.new_from_icon_name("folder-open-symbolic")
+        btn_open_folder.set_valign(Gtk.Align.CENTER)
+        btn_open_folder.connect("clicked", lambda b: Gio.AppInfo.launch_default_for_uri(f"file://{self.files_dir}", None))
+        self.folder_row.add_suffix(btn_open_folder)
+
+        btn_copy_link = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        btn_copy_link.set_valign(Gtk.Align.CENTER)
+        btn_copy_link.connect("clicked", self._on_copy_web_link)
+        self.folder_row.add_suffix(btn_copy_link)
+        self.files_group.add(self.folder_row)
+
+        self.smb_row = Adw.ActionRow()
+        self.smb_row.set_title("Windows SMB")
+        self.smb_row.set_subtitle(SMB_PATH)
+        btn_copy_smb = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        btn_copy_smb.set_valign(Gtk.Align.CENTER)
+        btn_copy_smb.connect("clicked", lambda b: self._copy_text(SMB_PATH))
+        self.smb_row.add_suffix(btn_copy_smb)
+        self.files_group.add(self.smb_row)
+
+    def _on_change_language(self, button, code, popover):
+        self.current_lang = code
+        set_lang(code)
+        self.settings["language"] = code
+        save_settings(self.settings)
+        popover.popdown()
+        self._refresh_texts()
+        self.refresh()
+
+    def _on_change_theme(self, button, mode, popover):
+        self.theme_mode = mode
+        self.settings["theme"] = mode
+        save_settings(self.settings)
+        popover.popdown()
+        self._apply_theme()
+        self._refresh_texts()
+
+    def _on_show_help(self, button):
+        lang = self.current_lang
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading=t("help_dialog_title", lang),
+            body=(
+                f"{t('help_p1', lang)}\n\n"
+                f"{t('help_p2', lang)}\n\n"
+                f"{t('help_p3', lang)}\n\n"
+                f"{t('help_p4', lang)}\n\n"
+                f"Contact: {OFFICIAL_EMAIL}"
+            )
+        )
+        dialog.add_response("ok", "Tamam" if lang == "tr" else "OK")
+        dialog.present()
+
+    def _on_show_mouse_guide(self, button):
+        lang = self.current_lang
+        _, wifi_ip = wifi_info()
+        wifi_line = f"   Wi-Fi IP: {wifi_ip}\n" if (self.mouse_wifi and wifi_ip != "-") else ""
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading=f"{t('win_setup_title', lang)} (Deskflow)",
+            body=(
+                f"1) {t('win_setup_step1', lang)}\n\n"
+                f"2) {t('win_setup_step2', lang)}\n\n"
+                f"3) {t('win_setup_step3', lang)}: {SHARE_IP}\n"
+                f"{wifi_line}"
+                f"4) {t('win_setup_step4', lang)}: {CLIENT_SCREEN}\n\n"
+                f"5) {t('win_setup_step5', lang)}\n\n"
+                f"6) {t('win_setup_step6', lang)}\n\n"
+                f"7) {t('win_setup_step7', lang)}\n\n"
+                f"{t('edge_hint', lang)}"
+            )
+        )
+        dialog.add_response("ok", "Tamam" if lang == "tr" else "OK")
+        dialog.present()
+
+    def _on_mode_combo_changed(self, combo_row, pspec):
+        idx = combo_row.get_selected()
+        self.sharing_mode = "ethernet" if idx == 0 else "hotspot"
+        self.settings["sharing_mode"] = self.sharing_mode
+        save_settings(self.settings)
+        self.iface_row.set_visible(self.sharing_mode == "ethernet")
+        self.hotspot_ssid_row.set_visible(self.sharing_mode == "hotspot")
+        self.hotspot_pass_row.set_visible(self.sharing_mode == "hotspot")
+        self.refresh()
+
+    def _on_iface_combo_changed(self, combo_row, pspec):
+        idx = combo_row.get_selected()
+        if 0 <= idx < len(self.eth_ifaces):
+            self.active_eth = self.eth_ifaces[idx]
+            self.settings["eth_iface"] = self.active_eth
+            save_settings(self.settings)
             self.refresh()
 
-    def _enable_ethernet_action(self) -> None:
-        success, msg = enable_sharing(self.active_eth)
-        if not success:
-            self._error(t("err_sharing_start"), msg)
+    def _on_edge_changed(self, combo_row, pspec):
+        idx = combo_row.get_selected()
+        edge_keys = ["right", "left", "top", "bottom"]
+        if 0 <= idx < len(edge_keys):
+            self.edge = edge_keys[idx]
+            self.settings["edge"] = self.edge
+            save_settings(self.settings)
+            write_deskflow_config(self.edge, self.mouse_wifi, share_ip=SHARE_IP)
+            if self.deskflow_proc is not None and self.deskflow_proc.poll() is None:
+                self.stop_mouse(restart=True, keep_wanted=True)
 
-    def _disable_ethernet_action(self) -> None:
-        success, msg = disable_sharing()
-        if not success:
-            self._error(t("err_sharing_stop"), msg)
-
-    def _enable_hotspot_action(self) -> None:
-        ssid = self.hotspot_ssid_input.text().strip() or HOTSPOT_DEFAULT_SSID
-        password = self.hotspot_pass_input.text().strip()
-        self.settings["hotspot_ssid"] = ssid
-        self.settings["hotspot_pass"] = password
-        save_settings(self.settings)
-        success, msg = enable_hotspot(ssid=ssid, password=password)
-        if not success:
-            self._error(t("err_hotspot_start"), msg)
-
-    def _disable_hotspot_action(self) -> None:
-        success, msg = disable_hotspot()
-        if not success:
-            self._error(t("err_hotspot_stop"), msg)
-
-
-    def _error(self, title: str, detail: str) -> None:
-        box = QMessageBox(self)
-        box.setWindowTitle(title)
-        box.setIcon(QMessageBox.Warning)
-        box.setText(title)
-        box.setInformativeText((detail or "").strip()[:600])
-        box.exec()
-
-    # ---------- Deskflow (KVM) Actions ----------
-
-    def set_edge(self, edge: str) -> None:
-        if edge not in EDGES:
-            return
-        self.edge = edge
-        self.settings["edge"] = edge
-        save_settings(self.settings)
-        write_deskflow_config(edge, self.mouse_wifi, share_ip=SHARE_IP)
-        if self.deskflow.state() == QProcess.Running:
-            self.stop_mouse(restart=True, keep_wanted=True)
-        self.refresh()
-
-    def set_mouse_wifi(self, enabled: bool) -> None:
-        self.mouse_wifi = enabled
-        self.settings["mouse_wifi"] = enabled
-        save_settings(self.settings)
-        if self.deskflow.state() == QProcess.Running:
-            self.stop_mouse(restart=True, keep_wanted=True)
-        self.refresh()
-
-    def set_mouse_enabled(self, enabled: bool) -> None:
+    def _on_mouse_switch_toggled(self, switch_row, pspec):
+        enabled = switch_row.get_active()
         if enabled:
             self.mouse_wanted = True
             self.settings["mouse_enabled"] = True
@@ -1467,83 +588,146 @@ class MainWindow(QWidget):
             self.stop_mouse()
         self.refresh()
 
-    def toggle_mouse(self) -> None:
-        running = self.deskflow.state() == QProcess.Running
-        self.set_mouse_enabled(not (running or self.mouse_wanted))
+    def _on_files_switch_toggled(self, switch_row, pspec):
+        enabled = switch_row.get_active()
+        if enabled:
+            self.start_files()
+        else:
+            self.stop_files()
+        self.refresh()
 
-    def start_mouse(self, silent: bool = False) -> None:
+    def _on_toggle_sharing(self, button):
+        is_eth = (self.sharing_mode == "ethernet")
+        active = sharing_active(self.active_eth) if is_eth else is_hotspot_active()
+
+        if active:
+            if is_eth:
+                disable_sharing(self.active_eth)
+            else:
+                disable_hotspot()
+        else:
+            if is_eth:
+                ok, err = enable_sharing(self.active_eth)
+                if not ok:
+                    self._show_error(t("err_share_failed", self.current_lang), err)
+            else:
+                ssid = self.hotspot_ssid_row.get_text() or HOTSPOT_DEFAULT_SSID
+                pw = self.hotspot_pass_row.get_text() or HOTSPOT_DEFAULT_PASS
+                self.settings["hotspot_ssid"] = ssid
+                self.settings["hotspot_pass"] = pw
+                save_settings(self.settings)
+                ok, err = enable_hotspot(ssid, pw)
+                if not ok:
+                    self._show_error(t("err_hotspot_failed", self.current_lang), err)
+
+        self.refresh()
+
+    def _copy_text(self, text: str):
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.set(text)
+
+    def _on_copy_web_link(self, button):
+        ip = iface_address(self.active_eth)
+        url = f"http://{ip}:{FILE_PORT}" if ip != "-" else f"http://{SHARE_IP}:{FILE_PORT}"
+        self._copy_text(url)
+
+    def _show_error(self, title: str, detail: str):
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading=title,
+            body=detail
+        )
+        dialog.add_response("ok", "Tamam" if self.current_lang == "tr" else "OK")
+        dialog.present()
+
+    # ---------- Deskflow (KVM) Service Management ----------
+
+    def start_mouse(self, silent: bool = False):
         if not is_deskflow_installed():
             if not silent:
-                self._error(
-                    t("mouse_not_installed"),
-                    f"{t('mouse_install_guide')}\n\nArch Linux: sudo pacman -S deskflow\nDebian/Ubuntu: sudo apt install deskflow",
+                self._show_error(
+                    t("mouse_not_installed", self.current_lang),
+                    f"{t('mouse_install_guide', self.current_lang)}\n\nArch: sudo pacman -S deskflow\nUbuntu: sudo apt install deskflow"
                 )
+            self.mouse_switch_row.set_active(False)
             return
-        if self.deskflow.state() != QProcess.NotRunning:
+
+        if self.deskflow_proc is not None and self.deskflow_proc.poll() is None:
             return
+
         if not sharing_active(self.active_eth) or iface_address(self.active_eth) == "-":
             if not silent:
-                self._error(t("err_start_sharing_first"), t("err_start_sharing_desc"))
+                self._show_error(t("err_start_sharing_first", self.current_lang), t("err_start_sharing_desc", self.current_lang))
+            self.mouse_switch_row.set_active(False)
             return
-        write_deskflow_config(self.edge, self.mouse_wifi, share_ip=SHARE_IP)
-        self.deskflow_output = ""
-        self.deskflow.start()
-        if not self.deskflow.waitForStarted(4000):
-            if not silent:
-                self._error(t("err_mouse_start"), self.deskflow.errorString())
-            return
-        self.mouse_wanted = True
-        self.settings["mouse_enabled"] = True
-        save_settings(self.settings)
 
-    def stop_mouse(self, restart: bool = False, keep_wanted: bool = False) -> None:
-        if self.deskflow.state() != QProcess.NotRunning:
-            self.deskflow.terminate()
-            if not self.deskflow.waitForFinished(3000):
-                self.deskflow.kill()
-                self.deskflow.waitForFinished(1500)
+        write_deskflow_config(self.edge, self.mouse_wifi, share_ip=SHARE_IP)
+        try:
+            self.deskflow_proc = subprocess.Popen(
+                ["deskflow-core", "server", "-f"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self.mouse_wanted = True
+            self.settings["mouse_enabled"] = True
+            save_settings(self.settings)
+        except Exception as e:
+            if not silent:
+                self._show_error(t("err_mouse_start", self.current_lang), str(e))
+            self.mouse_switch_row.set_active(False)
+
+    def stop_mouse(self, restart: bool = False, keep_wanted: bool = False):
+        if self.deskflow_proc is not None:
+            try:
+                self.deskflow_proc.terminate()
+                self.deskflow_proc.wait(timeout=1.5)
+            except Exception:
+                try:
+                    self.deskflow_proc.kill()
+                except Exception:
+                    pass
+            self.deskflow_proc = None
+
         self.mouse_wanted = keep_wanted
         self.settings["mouse_enabled"] = keep_wanted
         save_settings(self.settings)
+
         if restart:
             self.start_mouse()
 
-    def _read_deskflow(self) -> None:
-        data = bytes(self.deskflow.readAllStandardOutput()).decode("utf-8", "replace")
-        if data:
-            self.deskflow_output = (self.deskflow_output + data)[-4000:]
+    # ---------- File Sharing Service Management ----------
 
-    def _deskflow_finished(self, code: int, status: QProcess.ExitStatus) -> None:
-        pass
+    def start_files(self, silent: bool = False):
+        if self.file_server is not None:
+            return
+        if not sharing_active(self.active_eth) or iface_address(self.active_eth) == "-":
+            if not silent:
+                self._show_error(t("err_start_sharing_first", self.current_lang), t("err_start_sharing_desc", self.current_lang))
+            self.files_switch_row.set_active(False)
+            return
 
-    def _deskflow_error(self, error: QProcess.ProcessError) -> None:
-        pass
+        try:
+            self.files_dir.mkdir(parents=True, exist_ok=True)
+            handler = type("Handler", (FileShareHandler,), {"directory": str(self.files_dir)})
+            bind_ip = "0.0.0.0" if self.wifi_enabled else SHARE_IP
+            server = ThreadingHTTPServer((bind_ip, FILE_PORT), handler)
+            server.daemon_threads = True
+            self.file_server = server
+            self.files_wanted = True
+            self.settings["files_enabled"] = True
+            save_settings(self.settings)
 
-    def show_mouse_help(self) -> None:
-        box = QMessageBox(self)
-        box.setWindowTitle(t("win_setup_title"))
-        box.setIcon(QMessageBox.Information)
-        _, wifi_ip = wifi_info()
-        wifi_line = ""
-        if self.mouse_wifi and wifi_ip != "-":
-            wifi_line = f"   Wi-Fi IP: {wifi_ip}\n"
-        box.setText(f"{t('card_mouse_title')} (Deskflow)")
-        box.setInformativeText(
-            f"1) {t('win_setup_step1')}\n\n"
-            f"2) {t('win_setup_step2')}\n\n"
-            f"3) {t('win_setup_step3')}: {SHARE_IP}\n"
-            f"{wifi_line}"
-            f"4) {t('win_setup_step4')}: {CLIENT_SCREEN}\n\n"
-            f"5) {t('win_setup_step5')}\n\n"
-            f"6) {t('win_setup_step6')}\n\n"
-            f"7) {t('win_setup_step7')}\n\n"
-            f"{t('edge_hint')}"
-        )
-        box.exec()
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+        except Exception as exc:
+            self.files_wanted = False
+            self.settings["files_enabled"] = False
+            save_settings(self.settings)
+            self.files_switch_row.set_active(False)
+            if not silent:
+                self._show_error(t("err_file_server", self.current_lang), str(exc))
 
-    # ---------- File Server Actions ----------
-
-    def _close_file_server(self) -> None:
+    def stop_files(self):
         server = self.file_server
         self.file_server = None
         if server is not None:
@@ -1552,224 +736,116 @@ class MainWindow(QWidget):
                 server.server_close()
             except OSError:
                 pass
-
-    def start_files(self, silent: bool = False) -> None:
-        if self.file_server is not None:
-            return
-        if not sharing_active(self.active_eth) or iface_address(self.active_eth) == "-":
-            if not silent:
-                self._error(t("err_start_sharing_first"), t("err_start_sharing_desc"))
-            return
-        try:
-            self.files_dir.mkdir(parents=True, exist_ok=True)
-            handler = type("Handler", (FileShareHandler,), {"directory": str(self.files_dir)})
-            bind_ip = "0.0.0.0" if self.wifi_enabled else SHARE_IP
-            server = ThreadingHTTPServer((bind_ip, FILE_PORT), handler)
-        except OSError as exc:
-            self.files_wanted = False
-            self.settings["files_enabled"] = False
-            save_settings(self.settings)
-            if not silent:
-                self._error(
-                    t("err_file_server"),
-                    f"{exc}\n\nPort {FILE_PORT} might already be in use.",
-                )
-            return
-        server.daemon_threads = True
-        self.file_server = server
-        self.files_wanted = True
-        self.settings["files_enabled"] = True
-        self.settings["files_dir"] = str(self.files_dir)
-        save_settings(self.settings)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
-
-    def stop_files(self) -> None:
-        self._close_file_server()
         self.files_wanted = False
         self.settings["files_enabled"] = False
         save_settings(self.settings)
 
-    def set_files_enabled(self, enabled: bool) -> None:
-        if enabled:
-            self.files_wanted = True
-            self.settings["files_enabled"] = True
-            save_settings(self.settings)
-            self.start_files(silent=not sharing_active(self.active_eth))
+    def refresh(self):
+        is_eth = (self.sharing_mode == "ethernet")
+        active = sharing_active(self.active_eth) if is_eth else is_hotspot_active()
+        lang = self.current_lang
+
+        if active:
+            self.action_btn.set_label(t("btn_disable", lang))
+            self.action_btn.remove_css_class("suggested-action")
+            self.action_btn.add_css_class("destructive-action")
+            self.action_row.set_title(t("state_on", lang))
+            self.action_row.set_subtitle(t("hero_hint_on", lang) if is_eth else t("hotspot_on", lang))
         else:
-            self.stop_files()
-        self.refresh()
+            self.action_btn.set_label(t("btn_enable", lang))
+            self.action_btn.remove_css_class("destructive-action")
+            self.action_btn.add_css_class("suggested-action")
+            self.action_row.set_title(t("state_off", lang))
+            self.action_row.set_subtitle(t("hero_hint_ethernet", lang) if is_eth else t("hero_hint_hotspot", lang))
 
-    def toggle_files(self) -> None:
-        running = self.file_server is not None
-        self.set_files_enabled(not (running or self.files_wanted))
+        ip = iface_address(self.active_eth)
+        web_url = f"http://{ip}:{FILE_PORT}" if ip != "-" else f"http://{SHARE_IP}:{FILE_PORT}"
+        self.folder_row.set_title(f"Web: {web_url}")
 
-    def copy_files_url(self) -> None:
-        QApplication.clipboard().setText(f"http://{SHARE_IP}:{FILE_PORT}")
+    def _refresh_texts(self):
+        lang = self.current_lang
+        self.set_title(t("app_title", lang))
+        self.banner_title.set_label(t("app_title", lang))
+        self.banner_desc.set_label(t("app_subtitle", lang))
+        self.lang_btn_label.set_label(LANGUAGES.get(lang, "English"))
+        self.theme_btn_label.set_label(t(f"theme_{self.theme_mode}", lang))
 
-    def wifi_url(self) -> str:
-        _, ip = wifi_info()
-        if ip == "-":
-            return ""
-        return f"http://{ip}:{FILE_PORT}"
+        self.sharing_group.set_title(html.escape(t("tab_ethernet", lang) + " / " + t("tab_wireless", lang)))
+        self.mode_row.set_title(t("lbl_select_iface", lang))
 
-    def copy_wifi_url(self) -> None:
-        url = self.wifi_url()
-        if url:
-            QApplication.clipboard().setText(url)
+        # Mode model
+        self.mode_model.splice(0, self.mode_model.get_n_items(), [t("tab_ethernet", lang), t("tab_wireless", lang)])
+        self.mode_row.set_selected(0 if self.sharing_mode == "ethernet" else 1)
 
-    def set_wifi_access(self, enabled: bool) -> None:
-        self.wifi_enabled = enabled
-        self.settings["wifi_enabled"] = enabled
-        save_settings(self.settings)
-        if self.file_server is not None or self.files_wanted:
-            self._close_file_server()
-            self.start_files(silent=True)
-        self.refresh()
+        # Eth Interface combo model
+        if self.eth_ifaces:
+            self.iface_model.splice(0, self.iface_model.get_n_items(), self.eth_ifaces)
+            if self.active_eth in self.eth_ifaces:
+                self.iface_row.set_selected(self.eth_ifaces.index(self.active_eth))
+        self.iface_row.set_title(t("lbl_select_iface", lang))
+        self.iface_row.set_visible(self.sharing_mode == "ethernet")
 
-    def copy_smb_path(self) -> None:
-        QApplication.clipboard().setText(SMB_PATH)
+        self.hotspot_ssid_row.set_title(t("hotspot_ssid", lang))
+        self.hotspot_pass_row.set_title(t("hotspot_password", lang))
+        self.hotspot_ssid_row.set_visible(self.sharing_mode == "hotspot")
+        self.hotspot_pass_row.set_visible(self.sharing_mode == "hotspot")
 
-    def open_files_dir(self) -> None:
-        try:
-            self.files_dir.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.files_dir)))
+        # Mouse & Keyboard
+        self.mouse_group.set_title(html.escape(t("card_mouse_title", lang)))
+        self.mouse_switch_row.set_title(html.escape(t("card_mouse_title", lang)))
+        self.mouse_switch_row.set_subtitle(t("mouse_on", lang) if self.mouse_wanted else t("mouse_off", lang))
 
-    def select_files_directory(self) -> None:
-        chosen = QFileDialog.getExistingDirectory(
-            self,
-            t("dialog_select_shared_folder"),
-            str(self.files_dir),
+        edge_keys = ["right", "left", "top", "bottom"]
+        edge_labels = [t(f"edge_{k}", lang) for k in edge_keys]
+        self.edge_model.splice(0, self.edge_model.get_n_items(), edge_labels)
+        if self.edge in edge_keys:
+            self.edge_row.set_selected(edge_keys.index(self.edge))
+        self.edge_row.set_title(t("edge_question", lang))
+        self.mouse_guide_row.set_title(t("btn_show_win_setup", lang))
+
+        # File Sharing
+        self.files_group.set_title(html.escape(t("card_files_title", lang)))
+        self.files_switch_row.set_title(html.escape(t("card_files_title", lang)))
+        self.files_switch_row.set_subtitle(t("files_on", lang) if self.files_wanted else t("files_off", lang))
+
+
+class RamordLinkApp(Adw.Application):
+    def __init__(self):
+        super().__init__(
+            application_id="com.ramord.link",
+            flags=Gio.ApplicationFlags.DEFAULT_FLAGS
         )
-        if chosen and Path(chosen) != self.files_dir:
-            self.files_dir = Path(chosen)
-            self.settings["files_dir"] = str(self.files_dir)
-            save_settings(self.settings)
-            self.folder_path_lbl.setText(self._pretty_dir(self.files_dir))
-            if self.file_server is not None or self.files_wanted:
-                self._close_file_server()
-                self.start_files(silent=True)
-            self.refresh()
 
-    def show_win_files_guide(self) -> None:
-        box = QMessageBox(self)
-        box.setWindowTitle(t("win_files_guide_title"))
-        box.setIcon(QMessageBox.Information)
-        box.setText(t("win_files_guide_title"))
-        box.setInformativeText(
-            f"{t('win_files_guide_step1_title')}\n\n"
-            f"{t('win_files_guide_step1_desc')}\n\n"
-            "----------------------------------------\n\n"
-            f"{t('win_files_guide_step2_title')}\n\n"
-            f"{t('win_files_guide_step2_desc')}"
-        )
-        box.exec()
-
-    def set_autostart(self, enabled: bool) -> None:
-        try:
-            if enabled:
-                AUTOSTART_PATH.parent.mkdir(parents=True, exist_ok=True)
-                bin_path = Path.home() / ".local/bin/ramord-link"
-                AUTOSTART_PATH.write_text(
-                    "[Desktop Entry]\n"
-                    "Type=Application\n"
-                    "Name=Ramord Link\n"
-                    f"Exec={bin_path}\n"
-                    f"Icon={ICON_PATH}\n"
-                    "Terminal=false\n"
-                    "X-GNOME-Autostart-enabled=true\n"
-                )
-            elif AUTOSTART_PATH.exists():
-                AUTOSTART_PATH.unlink()
-        except OSError as exc:
-            QMessageBox.warning(self, "Error", f"Failed to set autostart:\n{exc}")
-
-    # ---------- Window Management ----------
-
-    def toggle_window(self) -> None:
-        if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
-            self.hide()
-        elif self.isVisible() and not self.isMinimized():
-            self.raise_()
-            self.activateWindow()
+    def do_activate(self):
+        windows = self.get_windows()
+        if not windows:
+            win = RamordLinkWindow(self)
+            win.present()
         else:
-            self.showNormal()
-            self.raise_()
-            self.activateWindow()
-
-    def show_window(self) -> None:
-        self.showNormal()
-        self.raise_()
-        self.activateWindow()
-
-    def closeEvent(self, event) -> None:
-        if self.tray and not self.quitting:
-            event.ignore()
-            self.hide()
-            self.tray.showMessage(
-                t("app_title"),
-                t("tray_hint"),
-                QSystemTrayIcon.Information,
-                2500,
-            )
-        else:
-            event.accept()
-
-    def quit_app(self) -> None:
-        self.quitting = True
-        self.stop_mouse()
-        self.stop_files()
-        if self.tray:
-            self.tray.hide()
-        QApplication.quit()
+            # Toggle behavior: clicking or pressing shortcut toggles show/hide
+            for w in list(windows):
+                w.close()
+            self.quit()
 
 
-def main() -> int:
-    app = QApplication(sys.argv)
-    app.setApplicationName("ramord-link")
-    app.setDesktopFileName("ramord-link")
-    app.setWindowIcon(get_app_icon())
-    app.setQuitOnLastWindowClosed(False)
-    app.setStyleSheet(STYLE)
+def main():
+    app = RamordLinkApp()
 
-    # Single-instance enforcement & toggle listener
-    server_key = "ramord-link"
-    probe = QLocalSocket()
-    probe.connectToServer(server_key)
-    if probe.waitForConnected(250):
-        probe.write(b"toggle")
-        probe.flush()
-        probe.waitForBytesWritten(250)
-        probe.disconnectFromServer()
-        return 0
+    def handle_sig(sig, frame):
+        for w in list(app.get_windows()):
+            try:
+                w.close()
+            except Exception:
+                pass
+        app.quit()
 
-    QLocalServer.removeServer(server_key)
-    server = QLocalServer(app)
-    server.listen(server_key)
+    try:
+        signal.signal(signal.SIGINT, handle_sig)
+        signal.signal(signal.SIGTERM, handle_sig)
+    except Exception:
+        pass
 
-    window = MainWindow()
-
-    def handle_client() -> None:
-        client = server.nextPendingConnection()
-        if client:
-            client.waitForReadyRead(150)
-            msg = bytes(client.readAll()).decode("utf-8", errors="ignore").strip()
-            if msg == "toggle":
-                window.toggle_window()
-            else:
-                window.show_window()
-            client.disconnectFromServer()
-
-    server.newConnection.connect(handle_client)
-    window.show()
-
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
-    timer = QTimer()
-    timer.start(300)
-    timer.timeout.connect(lambda: None)
-
-    return app.exec()
+    return app.run(sys.argv)
 
 
 if __name__ == "__main__":
